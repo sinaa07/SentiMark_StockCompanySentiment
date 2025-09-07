@@ -1,0 +1,31 @@
+# Stock Sentiment Dashboard MVP - Lightweight Dependencies (~200MB total)
+
+# Core Framework
+streamlit==1.29.0
+
+# Data Processing 
+pandas>=2.2.0
+numpy>=1.26.0   # 1.26+ is required for Python 3.13
+
+# Web Scraping & APIs
+requests==2.31.0
+beautifulsoup4==4.12.2
+feedparser==6.0.10
+newsapi-python==0.2.6
+
+# Stock Market Data
+yfinance==0.2.18
+
+# Lightweight Sentiment Analysis
+textblob==0.17.1
+vaderSentiment==3.3.2
+
+# Basic Visualization
+plotly==5.17.0
+
+# Utilities
+python-dotenv==1.0.0
+pytz==2023.3
+
+# Alternative: Use Hugging Face Inference API instead of local models
+huggingface-hub==0.19.4
