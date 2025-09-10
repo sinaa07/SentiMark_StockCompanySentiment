@@ -117,3 +117,102 @@ If you notice actual slowdown in testing
 If running on very slow hardware
 
 ////////////////////////
+
+## **Enhanced user_input_processor.py Functions:**
+
+### **Core Functions to Build:**
+
+## **1. Input Handling & Validation**
+- **`process_raw_input(user_text)`** - Clean and sanitize user input
+- **`validate_input_length(text, min_chars=2)`** - Check minimum character requirement
+- **`apply_debouncing(text, delay_ms=300)`** - Wait for user to stop typing
+
+## **2. Database Integration**
+- **`get_autocomplete_suggestions(query, limit=10)`** - Call db_manager for live suggestions
+- **`rank_suggestions(results)`** - Apply additional ranking if needed
+- **`format_suggestions_for_ui(suggestions)`** - Format for dropdown display
+
+## **3. User Selection Processing**
+- **`handle_user_selection(selected_symbol)`** - Process when user clicks/selects company
+- **`validate_final_selection(symbol)`** - Confirm selected company exists
+- **`get_complete_ticker_data(symbol)`** - Get full company details from database
+
+## **4. Output Formatting**
+- **`prepare_for_news_scraper(company_data)`** - Format output for news scraper
+- **`generate_search_keywords(company_info)`** - Create optimized search terms
+- **`create_ticker_object()`** - Final standardized output object
+
+## **5. State Management** 
+- **`track_user_session()`** - Handle multiple searches in one session
+- **`cache_recent_searches()`** - Store recent user selections
+- **`clear_session_data()`** - Reset between different user sessions
+
+## **6. Error Handling**
+- **`handle_no_results(query)`** - When database returns empty
+- **`handle_database_error()`** - Fallback when db_manager fails
+- **`validate_company_active(symbol)`** - Check if company is still listed
+
+## **Input → Output Flow:**
+
+### **Input:**
+```
+User types: "adani p" (raw keystroke input)
+```
+
+### **Processing Steps:**
+1. **Debouncing** → Wait 300ms after user stops
+2. **Validation** → Check >= 2 characters  
+3. **Database query** → Call db_manager.search_companies()
+4. **UI formatting** → Prepare dropdown suggestions
+5. **User selection** → Handle user clicking "Adani Ports"
+6. **Final validation** → Confirm selection exists
+7. **Output preparation** → Create ticker object
+
+### **Final Output:**
+```python
+{
+    "symbol": "ADANIPORTS",
+    "company_name": "Adani Ports and Special Economic Zone Limited", 
+    "search_terms": ["ADANIPORTS", "Adani Ports", "Adani SEZ"],
+    "series": "EQ",
+    "isin": "INE742F01042",
+    "validated": True,
+    "timestamp": "2025-09-10T09:45:00Z",
+    "source": "nse_database",
+    "ready_for_news_scraper": True
+}
+```
+
+## **Key Design Decisions:**
+
+### **1. Debouncing Implementation**
+- **Timer-based** or **counter-based** approach?
+- **Configurable delay** (300ms default)?
+
+### **2. Caching Strategy**
+- **Session-level** cache for recent searches?
+- **Popular searches** pre-loaded?
+
+### **3. Fallback Handling**
+- **What if database fails?** Use JSON backup?
+- **What if no results found?** Suggest alternatives?
+
+These functions will give you a robust input processor that connects seamlessly to your database 
+and prepares clean data for news scraping. Confirm if this covers what you need?
+
+
+///////////////////////////////////
+
+Function Flow:
+
+Search Phase:
+
+User types → process_raw_input() → apply_debouncing() → 
+get_autocomplete_suggestions() → format_suggestions_for_ui() → UI dropdown
+
+Selection Phase:
+
+User clicks suggestion → handle_user_selection() → 
+db_manager.get_company_details() → prepare_for_news_scraper() → Output ready for news scraper
+
+/////////////////////////////////

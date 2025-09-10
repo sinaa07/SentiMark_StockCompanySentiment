@@ -6,4 +6,4 @@ __pycache__/
 .venv/
 .streamlit/secrets.toml
 config/api_keys.py
-
+.DS_Store
