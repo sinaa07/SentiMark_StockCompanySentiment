@@ -1,0 +1,108 @@
+MVP Phase 1: Final Feature List
+
+## Core Components to Build
+
+### 1. `news_collector.py` - Main Pipeline
+
+Essential Functions:
+- `collect_company_news(company_data)` - Main orchestrator
+- `check_cache_first(company_symbol)` - Look for existing 3-day cache
+- `fetch_fresh_news(company_data)` - Trigger when cache miss/stale
+- `store_news_cache(company_symbol, articles)` - Save results for future searches
+
+### 2. `rss_manager.py` - RSS Operations
+
+Essential Functions:
+- `fetch_all_rss_feeds()` - Parallel fetch from ET, Moneycontrol, Business Standard
+- `parse_rss_content(rss_data)` - Extract articles from RSS XML/JSON
+- `handle_rss_failures(failed_sources)` - Continue with available sources
+- `get_rss_source_config()` - RSS URLs and settings
+
+### 3. `content_filter.py` - Simple Relevance
+
+Essential Functions:
+- `filter_company_articles(articles, company_data)` - Simple keyword matching
+- `check_article_relevance(article, company_name, ticker)` - Basic string matching
+- `deduplicate_articles(articles)` - Remove same articles from multiple sources
+- `sort_by_recency(articles)` - Newest first for FinBERT
+
+### 4. `news_database.py` - Cache Storage
+
+Essential Functions:
+- `create_news_tables()` - Set up cache database schema
+- `store_articles(company_symbol, articles, expiry_date)` - Cache news
+- `get_cached_articles(company_symbol)` - Retrieve from cache
+- `cleanup_expired_cache()` - Remove old entries (background job)
+
+### 5. `finbert_preprocessor.py` - FinBERT Ready Output
+
+Essential Functions:
+- `prepare_for_finbert(articles)` - Format articles for sentiment analysis
+- `chunk_long_articles(articles)` - Split articles if too long for FinBERT
+- `create_finbert_input_batch(processed_articles)` - Final formatted output
+- `add_metadata(finbert_input, company_data)` - Include company context
+
+## Integration Flow
+
+### Complete Pipeline:
+```
+user_input_processor.py output → 
+news_collector.collect_company_news() → 
+[Cache check → RSS fetch → Simple filter → Store cache] → 
+finbert_preprocessor.prepare_for_finbert() → 
+Ready for FinBERT sentiment analysis
+```
+
+## Simple Feature Specifications
+
+### Cache Strategy:
+- 3-day expiry per company
+- SQLite storage (reuse your existing database)
+- Simple TTL (time-to-live) based cleanup
+
+### RSS Sources (3 sources max):
+- Economic Times Business RSS
+- Moneycontrol Markets RSS 
+- Business Standard Markets RSS
+
+### Simple Filtering Rules:
+- Company name in title or description
+- Ticker symbol mentioned
+- Basic financial keywords (earnings, results, revenue, profit)
+- Recency filter (3-7 days old maximum)
+
+### Error Handling:
+- RSS fetch timeouts (10 seconds max per source)
+- Partial results (continue with available sources if 1-2 fail)
+- Empty results (expand time window to 7 days if no 3-day news)
+- Graceful degradation (return cached results even if stale)
+
+## Performance Targets:
+- Cache hit: <1 second response
+- Cache miss: 5-10 seconds response
+- Article count: 5-15 articles per company
+- Storage: <100MB total cache size
+
+## Testing Requirements:
+
+### Test Cases:
+- High-news companies (Reliance, Adani, TCS)
+- Medium-news companies (mid-cap stocks) 
+- Rare-news companies (smaller NSE stocks)
+- Cache hit/miss scenarios
+- RSS source failures
+
+### Success Criteria:
+- Response time acceptable (<10 seconds fresh, <1 second cached)
+- Relevant articles found (>80% company-related content)
+- FinBERT input quality (clean, readable article text)
+- System reliability (handles source failures gracefully)
+
+## Future Enhancement Hooks:
+- Easy to add AI relevance later (just replace content_filter functions)
+- Expandable RSS sources (add more feeds to rss_manager config)
+- Upgradeable caching (switch to Redis/memcached if needed)
+
+This MVP gives you a working end-to-end news pipeline that you can test, measure, and iteratively improve.
+
+Ready to start building these core components?

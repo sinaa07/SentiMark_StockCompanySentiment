@@ -15,6 +15,12 @@ user_input_processor checks min_chars →
 Calls db_manager.search_companies("ad") → 
 Returns results to UI
 
+latest User Experience Flow for news scraping and all.
+User searches "ADANIPORTS" →
+Check 3-day cache → If miss, show "Analyzing latest news..." →
+Fetch 3-4 RSS feeds (5-8 seconds) → AI filter for relevance →
+Store results → Show "Found 8 relevant articles from last 3 days"
+
 
 /////////////////////////
 This `db_manager.py` provides comprehensive database operations for your NSE stock data. Here's what it includes:
