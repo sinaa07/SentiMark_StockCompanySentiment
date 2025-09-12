@@ -63,17 +63,7 @@ class RSSManager:
                 'description_field': 'summary',
                 'date_field': 'published'
             },
-            'business_standard': {
-                'name': 'Business Standard Markets',
-                'url': 'https://www.business-standard.com/rss/markets-106.rss',
-                'backup_url': 'https://www.business-standard.com/rss/companies-101.rss',
-                'format': 'xml',
-                'encoding': 'utf-8',
-                'priority': 3,
-                'active': True,
-                'description_field': 'summary',
-                'date_field': 'published'
-            }
+            
         }
     
     def fetch_all_rss_feeds(self) -> Dict[str, Any]:
