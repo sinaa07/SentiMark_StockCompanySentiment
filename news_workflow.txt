@@ -106,3 +106,50 @@ Ready for FinBERT sentiment analysis
 This MVP gives you a working end-to-end news pipeline that you can test, measure, and iteratively improve.
 
 Ready to start building these core components?
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+**How to Run the Complete Pipeline:**
+
+**Prerequisites:**
+• Set up API credentials (Hugging Face token for FinBERT)
+• Install dependencies (aiohttp, asyncio, etc.)
+• Ensure all 5 modules are in the same directory/package
+• Set up RSS source URLs in `rss_manager.py`
+• Initialize database schema with `news_database.py`
+
+**Pipeline Execution Flow:**
+
+**1. Manual Testing (Individual Modules):**
+• Test `finbert_preprocessor.py` - Run standalone to verify preprocessing
+• Test `finbert_client.py` - Run standalone with mock data to verify API integration
+• Test each module individually before full integration
+
+**2. Integration Testing:**
+• Create `test_pipeline.py` - Import all modules and test end-to-end flow
+• Use mock company data to verify complete pipeline works
+• Test with small batch first (1-2 companies)
+
+**3. Production Usage Options:**
+
+**Option A: Script-based**
+• Create `main.py` - Import all modules, define company input, execute pipeline
+• Run: `python main.py --company RELIANCE` for single company analysis
+• Add argument parsing for multiple companies
+
+**Option B: API Server**
+• Create `app.py` with FastAPI/Flask - Expose pipeline as REST endpoints
+• POST `/analyze` with company data, return sentiment results
+• Run server: `uvicorn app:app` or `python app.py`
+
+**Option C: Scheduled Jobs**
+• Create `scheduler.py` - Run pipeline on predefined company list
+• Use cron jobs or task schedulers for regular sentiment updates
+• Store results in database for historical tracking
+
+**4. Input Format:**
+• Company data: `{'symbol': 'RELIANCE', 'name': 'Reliance Industries', 'sector': 'Oil & Gas'}`
+• Can process single company or batch of companies
+• Results include sentiment scores, confidence, and article details
+
+**Which approach would you prefer for running your pipeline?**

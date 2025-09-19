@@ -47,10 +47,10 @@ class NewsCollector:
             # from news_database import NewsDatabase
             # from finbert_preprocessor import FinBERTPreprocessor
             
-            # self.rss_manager = RSSManager()
-            # self.content_filter = ContentFilter()
-            # self.news_database = NewsDatabase(self.db_path)
-            # self.finbert_preprocessor = FinBERTPreprocessor()
+            self.rss_manager = RSSManager()
+            self.content_filter = ContentFilter()
+            self.news_database = NewsDatabase(self.db_path)
+            self.finbert_preprocessor = FinBERTPreprocessor()
             
             logger.info("Supporting modules initialized successfully")
         except ImportError as e:
@@ -466,7 +466,7 @@ class NewsCollector:
 
 
 # Example usage and testing
-if __name__ == "__main__":
+if __name__ == "__main__": 
     # Initialize news collector
     collector = NewsCollector()
     
