@@ -1,209 +1,155 @@
-Step 1: Run db_setup.py (once)
-├── Creates nse_stocks.db file
-├── Creates tables with schema
-├── Imports your CSV data
-└── Sets up indexes
 
-Step 2: Use db_manager.py (ongoing)
-├── Handle user search queries
-├── Return autocomplete suggestions
-└── Validate ticker selections
+///////////////////////////////////////////////////////////////////////////////////////
 
-Step 3:
-User types "ad" → Frontend waits 300ms → 
-user_input_processor checks min_chars → 
-Calls db_manager.search_companies("ad") → 
-Returns results to UI
+Complete Pipeline Flow Summary:
 
-latest User Experience Flow for news scraping and all.
-User searches "ADANIPORTS" →
-Check 3-day cache → If miss, show "Analyzing latest news..." →
-Fetch 3-4 RSS feeds (5-8 seconds) → AI filter for relevance →
-Store results → Show "Found 8 relevant articles from last 3 days"
+User Input → UserInputProcessor → Validates and formats company selection
+News Collection → NewsCollector → Orchestrates RSS fetching and caching
+RSS Fetching → RSSManager → Parallel fetch from multiple financial news sources
+Content Filtering → ContentFilter → Relevance scoring and deduplication
+FinBERT Prep → FinBERTPreprocessor → Chunking and API batch formatting
+Sentiment Analysis → FinBERTClient → API calls and result aggregation
+Final Output → Sentiment scores ready for dashboard/visualization
 
+///////////////////////////////////////////////////////////////////////////////////////
 
-/////////////////////////
-This `db_manager.py` provides comprehensive database operations for your NSE stock data. Here's what it includes:
+User Input Processor (user_input_processor.py)
+Input Handling Functions:
+process_raw_input() - Clean and sanitize user text, normalize case and spacing
+validate_input_length() - Check if input meets minimum character requirements
+apply_debouncing() - Wait for user to stop typing before processing queries
 
-## **Key Features:**
+Autocomplete Functions:
+get_autocomplete_suggestions() - Main autocomplete entry point with validation and database search
+format_suggestions_for_ui() - Convert database results to UI dropdown format
+_highlight_search_term() - Add highlighting markers to matched text in suggestions
+handle_no_results() - Provide helpful suggestions when no matches found
 
-### **1. Core Search Functions**
-- **`search_companies()`** - Multi-tier ranked search (exact → starts with → contains)
-- **`get_company_suggestions()`** - Formatted for UI autocomplete
-- **`validate_ticker()`** - Quick existence check
+Selection Processing Functions:
+handle_user_selection() - Main function to process selected company, validate and prepare data
+prepare_for_news_scraper() - Format company data for news pipeline integration
+_generate_search_terms() - Create optimized search keywords from company data
 
-### **2. Advanced Search**
-- **`search_multi_field()`** - Search across symbol, company name, ISIN
-- **`get_similar_companies()`** - Find related companies
-- **`search_by_sector()`** - Ready for future sector data
+Utility Functions:
+cache_recent_searches() - Store user's recent selections for quick access
+get_recent_searches() - Retrieve cached recent searches
+handle_errors() - Centralized error handling with consistent response format
+test_connection() - Test processor and database connectivity
+get_stats() - Return processor statistics and usage metrics
 
-### **3. Integration Ready**
-- **`format_for_news_scraper()`** - Converts data for your news pipeline
-- **`get_search_terms()`** - Generates keywords for news APIs
-- **Context manager** for safe database connections
+///////////////////////////////////////////////////////////////////////////////////////
 
-### **4. Built-in Testing**
-- **`test_connection()`** - Health checks
-- **`database_stats()`** - Performance monitoring
-- **Example usage** in `if __name__ == "__main__"`
+RSS Manager (rss_manager.py)
+Core Functions:
 
-## **Performance Optimizations:**
+fetch_all_rss_feeds() - Parallel fetch from all configured RSS sources, returns combined articles
+_fetch_single_rss_feed() - Fetch from one RSS source with retry logic and backup URLs
+parse_rss_content() - Parse RSS XML using feedparser, extract article data
+_extract_article_data() - Convert RSS entry to standardized article dictionary
+_compile_fetch_results() - Combine results from multiple sources into final output
+handle_rss_failures() - Analyze failed sources and provide recommendations
+test_single_source() - Debug individual RSS source connectivity
+get_source_status() - Return configuration status of all RSS sources
 
-### **1. Ranked Search Results**
-- Exact matches first
-- Symbol matches before company name matches
-- Intelligent ordering for better UX
+Utility Functions:
 
-### **2. Efficient Queries**
-- Uses indexes from your `db_setup.py`
-- Limits results to prevent slowdown
-- Proper SQLite row factory for fast access
+_safe_get_text() - Safely extract text from RSS fields with fallbacks
+_extract_publish_date() - Parse and standardize publication dates
+_extract_categories() - Extract tags/categories from RSS entries
+_create_empty_result() - Create error response structure
 
-### **3. Error Handling**
-- Context managers for safe connections
-- Comprehensive logging
-- Graceful fallbacks
+///////////////////////////////////////////////////////////////////////////////////////
 
-## **Usage Examples:**
-```python
-# Initialize
-db_manager = NSEDatabaseManager()
+Content Filter (content_filter.py)
+Main Functions:
 
-# Autocomplete search
-results = db_manager.search_companies("adani", 10)
+filter_company_articles() - Main entry point, applies complete filtering pipeline
+check_article_relevance() - Calculate relevance score (0-1) using company name/ticker matching
+deduplicate_articles() - Remove duplicate articles using title similarity and URL matching
+sort_by_recency() - Sort by relevance score then publication date (newest first)
 
-# Get full company details
-company = db_manager.get_company_details("ADANIPORTS")
+Relevance Scoring Functions:
+_calculate_company_name_score() - Score based on company name presence in text
+_calculate_keyword_score() - Score based on financial keywords (earnings, profit, etc.)
+_calculate_context_score() - Higher weight for matches in title vs description
+_extract_company_identifiers() - Extract all possible company identifiers for matching
 
-# Format for news scraper
-news_data = db_manager.format_for_news_scraper(company)
-```
+Deduplication Functions:
+_generate_article_hash() - Create content hash for duplicate detection
+_calculate_title_similarity() - Calculate Jaccard similarity between titles
+_normalize_title() - Clean and normalize titles for comparison
 
-## **Next Steps:**
-1. **Test it**: Run the script to verify everything works
-2. **Integrate**: Connect to your `user_input_processor.py`
-3. **Connect**: Link output to your `news_scraper.py`
+Utility Functions:
+_filter_by_date() - Filter out articles older than max_days_old
+_parse_article_date() - Parse various date formats to datetime objects
+_clean_text() - Remove HTML tags, normalize unicode, clean whitespace
+_clean_company_name() - Remove common suffixes (Ltd, Limited, etc.)
 
-////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////
 
-Multi-tier Search Performance Impact:
-Short Answer: Minimal increase, but smart optimization possible
-Current Implementation Analysis:
-Performance Impact:
+News Collector (news_collector.py)
+Main Functions:
 
-4 separate queries executed sequentially
-Each query has LIMIT so results are small
-Early termination when limit reached
-Total time: ~2-15ms (still very fast)
+collect_company_news() - Main orchestrator, handles cache-first news collection
+check_cache_first() - Check SQLite cache for valid articles before fetching
+fetch_fresh_news() - Fetch new articles when cache miss occurs
+store_news_cache() - Cache articles with expiration dates
 
-Why It's Still Fast:
+Database Functions:
 
-Indexed searches - Each query uses your database indexes
-Small result sets - LIMIT 10 means max 10 rows per query
-Early exit - Stops when enough results found
-Local database - No network latency
+_ensure_news_tables() - Create news cache database tables and indexes
+cleanup_expired_cache() - Remove expired cache entries
+get_cache_stats() - Return cache statistics and metrics
 
-For Your Use Case (2000 NSE stocks):
-Keep the multi-tier approach because:
+Processing Functions:
 
-Still very fast (< 15ms worst case)
-Better ranking - exact matches prioritized
-More intuitive results for users
-Negligible difference in user experience
+_prepare_finbert_input() - Basic preparation for FinBERT (will use preprocessor)
+_format_final_output() - Format response with metadata and processing stats
+_fetch_rss_articles_mvp() - MVP RSS fetching (placeholder using mock data)
+_filter_articles_mvp() - Basic keyword filtering (will use ContentFilter)
 
-When to Optimize:
+///////////////////////////////////////////////////////////////////////////////////////
 
-If dataset grows to 50,000+ records
-If you notice actual slowdown in testing
-If running on very slow hardware
+FinBERT Preprocessor (finbert_preprocessor.py)
+Main Functions:
 
-////////////////////////
+prepare_for_finbert() - Main entry point, converts filtered articles to FinBERT batches
+chunk_long_articles() - Split articles exceeding token limits while preserving context
+create_finbert_input_batch() - Group chunks into API-optimized batches
 
-Final user_input_processor.py Functions:
-Simplified & Optimized Function List:
-1. Input Handling & Validation
+Processing Functions:
 
-process_raw_input(user_text) - Clean and sanitize user input
-validate_input_length(text, min_chars=2) - Check minimum character requirement
-apply_debouncing(text, delay_ms=300) - Wait for user to stop typing
+_clean_articles() - Clean text and combine title+content for processing
+_create_context_aware_chunks() - Create overlapping chunks preserving sentence boundaries
+_split_into_sentences() - Split text into sentences handling financial abbreviations
+_get_overlap_text() - Extract overlap text from chunk endings for continuity
 
-2. Search Bar Autocomplete
+///////////////////////////////////////////////////////////////////////////////////////
 
-get_autocomplete_suggestions(query, limit=10) - Call db_manager + format for UI
-format_suggestions_for_ui(raw_results) - Convert to dropdown-friendly format
+FinBERT Client (finbert_client.py) (Based on typical implementation)
+Main API Functions:
 
-3. User Selection Processing
+analyze_sentiment_batch() - Send batched articles to FinBERT API for sentiment analysis
+analyze_single_text() - Process individual text for sentiment scoring
+process_preprocessed_batches() - Handle output from FinBERTPreprocessor
 
-handle_user_selection(selected_symbol) - Main function when user clicks/selects
-prepare_for_news_scraper(company_data) - Format final output for news scraper
+Request Management Functions:
 
-4. Utility Functions
+_make_api_request() - Handle HTTP requests to FinBERT endpoint with retries
+_handle_rate_limiting() - Manage API rate limits and backoff strategies
+_validate_api_response() - Check API response format and extract results
 
-cache_recent_searches(selection) - Store user's recent selections (optional)
-handle_no_results(query) - When database returns empty results
-handle_errors(error_type, details) - Centralized error handling
+Result Processing Functions:
 
-## **Input → Output Flow:**
+_parse_sentiment_scores() - Extract confidence scores for positive/negative/neutral
+_aggregate_chunk_sentiments() - Combine multiple chunk results into article-level sentiment
+_format_analysis_results() - Structure output for pipeline consumption
 
-### **Input:**
-```
-User types: "adani p" (raw keystroke input)
-```
+Configuration Functions:
 
-### **Processing Steps:**
-1. **Debouncing** → Wait 300ms after user stops
-2. **Validation** → Check >= 2 characters  
-3. **Database query** → Call db_manager.search_companies()
-4. **UI formatting** → Prepare dropdown suggestions
-5. **User selection** → Handle user clicking "Adani Ports"
-6. **Final validation** → Confirm selection exists
-7. **Output preparation** → Create ticker object
+_load_api_config() - Load API endpoints, keys, and request parameters
+_setup_request_session() - Configure HTTP session with headers and timeouts
+get_client_stats() - Return API usage statistics and performance metrics
 
-### **Final Output:**
-```python
-{
-    "symbol": "ADANIPORTS",
-    "company_name": "Adani Ports and Special Economic Zone Limited", 
-    "search_terms": ["ADANIPORTS", "Adani Ports", "Adani SEZ"],
-    "series": "EQ",
-    "isin": "INE742F01042",
-    "validated": True,
-    "timestamp": "2025-09-10T09:45:00Z",
-    "source": "nse_database",
-    "ready_for_news_scraper": True
-}
-```
+///////////////////////////////////////////////////////////////////////////////////////
 
-## **Key Design Decisions:**
-
-### **1. Debouncing Implementation**
-- **Timer-based** or **counter-based** approach?
-- **Configurable delay** (300ms default)?
-
-### **2. Caching Strategy**
-- **Session-level** cache for recent searches?
-- **Popular searches** pre-loaded?
-
-### **3. Fallback Handling**
-- **What if database fails?** Use JSON backup?
-- **What if no results found?** Suggest alternatives?
-
-These functions will give you a robust input processor that connects seamlessly to your database 
-and prepares clean data for news scraping. Confirm if this covers what you need?
-
-
-///////////////////////////////////
-
-Function Flow:
-
-Search Phase:
-
-User types → process_raw_input() → apply_debouncing() → 
-get_autocomplete_suggestions() → format_suggestions_for_ui() → UI dropdown
-
-Selection Phase:
-
-User clicks suggestion → handle_user_selection() → 
-db_manager.get_company_details() → prepare_for_news_scraper() → Output ready for news scraper
-
-/////////////////////////////////
