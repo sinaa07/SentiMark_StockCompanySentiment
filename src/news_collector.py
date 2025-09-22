@@ -2,7 +2,7 @@
 News Collector Module for NSE Stock Market Sentiment Analysis
 Handles news collection, caching, and preparation for FinBERT processing
 
-Dependencies: rss_manager.py, content_filter.py, news_database.py, finbert_preprocessor.py
+Dependencies: rss_manager.py, content_filter.py, news_database.py
 """
 
 import logging
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class NewsCollector:
     """
     Main news collection orchestrator that coordinates between
-    user input processing and FinBERT preparation
+    user input processing and downstream sentiment analysis
     """
     
     def __init__(self, database_path: str = "nse_stocks.db", cache_expiry_days: int = 3):
@@ -33,24 +33,22 @@ class NewsCollector:
         self.rss_manager = None
         self.content_filter = None
         self.news_database = None
-        self.finbert_preprocessor = None
         
         self._initialize_modules()
         self._ensure_news_tables()
     
     def _initialize_modules(self):
-        """Initialize supporting modules - placeholder for now"""
+        """Initialize supporting modules"""
         try:
-            # These imports will work when the modules are created
-            # from rss_manager import RSSManager
+            # Import RSS Manager
+            from rss_manager import RSSManager
+            self.rss_manager = RSSManager()
+            
+            # These will be uncommented when modules are created
             # from content_filter import ContentFilter
             # from news_database import NewsDatabase
-            # from finbert_preprocessor import FinBERTPreprocessor
-            
-            self.rss_manager = RSSManager()
-            self.content_filter = ContentFilter()
-            self.news_database = NewsDatabase(self.db_path)
-            self.finbert_preprocessor = FinBERTPreprocessor()
+            # self.content_filter = ContentFilter()
+            # self.news_database = NewsDatabase(self.db_path)
             
             logger.info("Supporting modules initialized successfully")
         except ImportError as e:
@@ -111,7 +109,7 @@ class NewsCollector:
                 - Other metadata
         
         Returns:
-            Dict containing news articles ready for FinBERT processing
+            Dict containing news articles ready for downstream processing
         """
         start_time = time.time()
         company_symbol = company_data.get('symbol', '').upper()
@@ -149,7 +147,7 @@ class NewsCollector:
                 'error': str(e),
                 'processing_time': time.time() - start_time,
                 'from_cache': False,
-                'ready_for_finbert': False
+                'ready_for_processing': False
             }
     
     def check_cache_first(self, company_symbol: str) -> Optional[List[Dict[str, Any]]]:
@@ -216,68 +214,68 @@ class NewsCollector:
         
         logger.info(f"Fetching fresh news for {company_symbol}")
         
-        # For MVP implementation - basic RSS fetching
-        # This will be replaced by proper RSS manager module
-        articles = self._fetch_rss_articles_mvp(search_terms)
+        # Check if RSS manager is available
+        if not self.rss_manager:
+            logger.error("RSS Manager not initialized")
+            return []
         
-        # Filter for relevance
-        relevant_articles = self._filter_articles_mvp(articles, company_data)
-        
-        # Sort by recency and limit count
-        relevant_articles.sort(key=lambda x: x.get('published_date', ''), reverse=True)
-        relevant_articles = relevant_articles[:self.max_articles_per_company]
-        
-        logger.info(f"Found {len(relevant_articles)} relevant articles for {company_symbol}")
-        return relevant_articles
+        try:
+            # Fetch from RSS sources using RSS Manager
+            rss_result = self.rss_manager.fetch_all_rss_feeds()
+            
+            if not rss_result.get('success', False):
+                logger.error(f"RSS fetch failed: {rss_result.get('error', 'Unknown error')}")
+                return []
+            
+            # Extract articles from RSS result
+            raw_articles = rss_result.get('articles', [])
+            logger.info(f"Fetched {len(raw_articles)} raw articles from RSS sources")
+            
+            if not raw_articles:
+                logger.warning("No articles returned from RSS sources")
+                return []
+            
+            # Map RSS Manager field names to expected format
+            articles = self.map_rss_articles_to_expected_format(raw_articles)
+            
+            # Filter for relevance using basic filtering (will be replaced by ContentFilter)
+            relevant_articles = self._filter_articles_basic(articles, company_data)
+            
+            # Sort by recency and limit count
+            relevant_articles.sort(key=lambda x: x.get('published_date', ''), reverse=True)
+            relevant_articles = relevant_articles[:self.max_articles_per_company]
+            
+            logger.info(f"Found {len(relevant_articles)} relevant articles for {company_symbol}")
+            return relevant_articles
+            
+        except Exception as e:
+            logger.error(f"Error fetching fresh news for {company_symbol}: {e}")
+            return []
     
-    def _fetch_rss_articles_mvp(self, search_terms: List[str]) -> List[Dict[str, Any]]:
-        """
-        MVP implementation of RSS fetching
-        This is a placeholder that will be replaced by proper RSS manager
-        """
-        # Placeholder RSS sources for MVP
-        rss_sources = [
-            {
-                'name': 'Economic Times Business',
-                'url': 'https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms',
-                'priority': 1
-            },
-            {
-                'name': 'Moneycontrol',
-                'url': 'https://www.moneycontrol.com/rss/business.xml',
-                'priority': 2
-            },
-            {
-                'name': 'Business Standard',
-                'url': 'https://www.business-standard.com/rss/markets-106.rss',
-                'priority': 3
-            }
-        ]
+    def map_rss_articles_to_expected_format(self, raw_articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        mapped_articles = []
+        for article in raw_articles:
+            try:
+                mapped_article = {
+                    'title': article.get('title', ''),
+                    'description': article.get('description', ''),  # Keep original
+                    'link': article.get('link', ''),               # Keep original  
+                    'published': article.get('published', ''),     # Keep original
+                    'source': article.get('source', ''),
+                    'author': article.get('author', ''),
+                    'relevance_score': 0.0
+                }
+                if mapped_article['title'] and mapped_article['link']:
+                    mapped_articles.append(mapped_article)
+            except Exception as e:
+                logger.debug(f"Error mapping article: {e}")
+                continue
         
-        all_articles = []
-        
-        # For MVP, return mock articles
-        # In actual implementation, this will fetch from RSS sources
-        logger.info("MVP: Using placeholder RSS fetching")
-        
-        # Mock articles for testing
-        mock_articles = [
-            {
-                'title': f'Sample financial news about {search_terms[0] if search_terms else "company"}',
-                'content': 'Sample content for testing purposes. This would contain actual news content.',
-                'url': 'https://example.com/news/1',
-                'source': 'Economic Times',
-                'published_date': datetime.now().isoformat(),
-                'raw_content': 'Full article content would be here'
-            }
-        ]
-        
-        all_articles.extend(mock_articles)
-        return all_articles
+        return mapped_articles
     
-    def _filter_articles_mvp(self, articles: List[Dict[str, Any]], company_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _filter_articles_basic(self, articles: List[Dict[str, Any]], company_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
-        MVP implementation of simple article filtering
+        Basic article filtering implementation (will be replaced by ContentFilter)
         """
         company_name = company_data.get('company_name', '').lower()
         company_symbol = company_data.get('symbol', '').lower()
@@ -287,7 +285,7 @@ class NewsCollector:
         
         for article in articles:
             title = article.get('title', '').lower()
-            content = article.get('content', '').lower()
+            content = article.get('description', '').lower()
             
             # Simple keyword matching
             is_relevant = False
@@ -306,6 +304,11 @@ class NewsCollector:
             elif company_name in content or company_symbol in content:
                 is_relevant = True
                 article['relevance_score'] = 0.6
+            
+            # Check search terms in content (lowest relevance)
+            elif any(term in content for term in search_terms):
+                is_relevant = True
+                article['relevance_score'] = 0.5
             
             if is_relevant:
                 relevant_articles.append(article)
@@ -358,7 +361,7 @@ class NewsCollector:
     def _format_final_output(self, company_data: Dict[str, Any], articles: List[Dict[str, Any]], 
                            processing_time: float, from_cache: bool) -> Dict[str, Any]:
         """
-        Format the final output for FinBERT processing
+        Format the final output for downstream processing
         """
         return {
             'company_data': company_data,
@@ -368,40 +371,13 @@ class NewsCollector:
             'processing_time': round(processing_time, 2),
             'from_cache': from_cache,
             'cache_expiry_days': self.cache_expiry_days,
-            'ready_for_finbert': len(articles) > 0,
-            'finbert_ready_data': self._prepare_finbert_input(articles, company_data),
+            'ready_for_processing': len(articles) > 0,
             'metadata': {
                 'collection_timestamp': datetime.now().isoformat(),
                 'min_articles_required': self.min_articles_required,
                 'max_articles_limit': self.max_articles_per_company
             }
         }
-    
-    def _prepare_finbert_input(self, articles: List[Dict[str, Any]], company_data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Prepare articles for FinBERT sentiment analysis
-        This is a basic implementation - will be enhanced in finbert_preprocessor.py
-        """
-        finbert_input = {
-            'company_symbol': company_data.get('symbol', ''),
-            'company_name': company_data.get('company_name', ''),
-            'articles_for_analysis': [],
-            'total_articles': len(articles),
-            'ready_for_processing': True
-        }
-        
-        for i, article in enumerate(articles):
-            processed_article = {
-                'id': f"{company_data.get('symbol', '')}_{i}",
-                'title': article.get('title', ''),
-                'content': article.get('content', '')[:2000],  # Limit content length for FinBERT
-                'source': article.get('source', ''),
-                'published_date': article.get('published_date', ''),
-                'relevance_score': article.get('relevance_score', 0.0)
-            }
-            finbert_input['articles_for_analysis'].append(processed_article)
-        
-        return finbert_input
     
     def cleanup_expired_cache(self):
         """
@@ -483,8 +459,8 @@ if __name__ == "__main__":
         "ready_for_news_scraper": True
     }
     
-    print("Testing News Collector...")
-    print("=" * 50)
+    print("Testing News Collector with RSS Manager Integration...")
+    print("=" * 60)
     
     # Test news collection
     result = collector.collect_company_news(sample_company_data)
@@ -493,7 +469,15 @@ if __name__ == "__main__":
     print(f"Articles Found: {result['article_count']}")
     print(f"Processing Time: {result['processing_time']} seconds")
     print(f"From Cache: {result['from_cache']}")
-    print(f"Ready for FinBERT: {result['ready_for_finbert']}")
+    print(f"Ready for Processing: {result['ready_for_processing']}")
+    
+    # Show sample articles if found
+    if result.get('articles'):
+        print(f"\nSample Articles:")
+        for i, article in enumerate(result['articles'][:3], 1):
+            print(f"{i}. {article.get('title', 'No Title')[:80]}...")
+            print(f"   Source: {article.get('source', 'Unknown')}")
+            print(f"   Relevance: {article.get('relevance_score', 0.0)}")
     
     # Test cache stats
     print("\nCache Statistics:")
@@ -504,4 +488,4 @@ if __name__ == "__main__":
     # Test cache cleanup
     print(f"\nCleanup Result: {collector.cleanup_expired_cache()} entries removed")
     
-    print("\nNews Collector testing completed!")
+    print("\nNews Collector with RSS Manager integration testing completed!")
