@@ -17,7 +17,8 @@ class SentimentPipeline:
 
     def __init__(self, db_path="data/nse_stocks.db", hf_api_token: str = ""):
         self.user_input = UserInputProcessor(db_path=db_path)
-        self.news_collector = NewsCollector()
+        # Ensure NewsCollector uses the same DB path as user input
+        self.news_collector = NewsCollector(database_path=db_path)
         self.filter = ContentFilter()
         self.preprocessor = FinBERTPreprocessor()
         self.client = FinBERTClient(api_token=hf_api_token)

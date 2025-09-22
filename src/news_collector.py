@@ -6,6 +6,7 @@ Dependencies: rss_manager.py, content_filter.py, news_database.py
 """
 
 import logging
+import os
 import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
@@ -23,8 +24,13 @@ class NewsCollector:
     user input processing and downstream sentiment analysis
     """
     
-    def __init__(self, database_path: str = "nse_stocks.db", cache_expiry_days: int = 3):
-        self.db_path = database_path
+    def __init__(self, database_path: str = "data/nse_stocks.db", cache_expiry_days: int = 3):
+        # Resolve to an absolute path anchored at project root
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        if os.path.isabs(database_path):
+            self.db_path = database_path
+        else:
+            self.db_path = os.path.join(project_root, database_path)
         self.cache_expiry_days = cache_expiry_days
         self.max_articles_per_company = 15
         self.min_articles_required = 3
@@ -179,15 +185,16 @@ class NewsCollector:
                 if not cached_rows:
                     return None
                 
-                # Convert to list of dictionaries
+                # Convert to list of dictionaries, normalized to RSS schema
+                # Expected by downstream filtering: title, description, link, published, source
                 articles = []
                 for row in cached_rows:
                     articles.append({
                         'title': row['article_title'],
-                        'content': row['article_content'],
-                        'url': row['article_url'],
-                        'source': row['source_name'],
-                        'published_date': row['published_date'],
+                        'description': row['article_content'] or '',
+                        'link': row['article_url'] or '',
+                        'source': row['source_name'] or '',
+                        'published': row['published_date'] or '',
                         'relevance_score': row['relevance_score']
                     })
                 
@@ -333,7 +340,7 @@ class NewsCollector:
                 # Clear existing cache for this company first
                 cursor.execute('DELETE FROM news_cache WHERE company_symbol = ?', (company_symbol,))
                 
-                # Insert new articles
+                # Insert new articles (map from RSS schema to DB columns)
                 for article in articles:
                     cursor.execute('''
                         INSERT INTO news_cache 
@@ -343,10 +350,10 @@ class NewsCollector:
                     ''', (
                         company_symbol,
                         article.get('title', ''),
-                        article.get('content', ''),
-                        article.get('url', ''),
+                        article.get('description', ''),
+                        article.get('link', ''),
                         article.get('source', ''),
-                        article.get('published_date', ''),
+                        article.get('published', ''),
                         article.get('relevance_score', 0.0),
                         cached_date,
                         expires_date
