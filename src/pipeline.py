@@ -28,11 +28,12 @@ class SentimentPipeline:
             if company_data.get("error"):
                 return {"stage": "user_input", "result": company_data}
 
-            raw_articles = self.news_collector.collect_company_news(company_data)
-            if not raw_articles:
+            news_result = self.news_collector.collect_company_news(company_data)
+            articles = (news_result or {}).get("articles", [])
+            if not articles:
                 return {"stage": "news_collection", "error": "No articles found"}
 
-            filtered = self.filter.filter_company_articles(raw_articles, company_data)
+            filtered = self.filter.filter_company_articles(articles, company_data)
             if not filtered:
                 return {"stage": "content_filter", "error": "No relevant articles after filtering"}
 

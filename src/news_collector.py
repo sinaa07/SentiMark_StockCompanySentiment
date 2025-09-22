@@ -287,7 +287,7 @@ class NewsCollector:
             title = article.get('title', '').lower()
             content = article.get('description', '').lower()
             
-            # Simple keyword matching
+            # Simple keyword match ing
             is_relevant = False
             
             # Check if company name or symbol in title (high relevance)
