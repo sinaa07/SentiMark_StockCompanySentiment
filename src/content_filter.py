@@ -46,6 +46,7 @@ class ContentFilter:
             logger.info(f"Processing {len(articles)} articles for {company_data.get('company_name', 'Unknown')}")
             
             # Step 1: Basic relevance filtering (very permissive)
+            search_terms = [t.lower() for t in company_data.get('search_terms', []) if isinstance(t, str)]
             relevant_articles = []
             for article in articles:
                 relevance_score = self.check_article_relevance(
@@ -53,6 +54,13 @@ class ContentFilter:
                     company_data.get('company_name', ''), 
                     company_data.get('symbol', '')
                 )
+                # Boost if any search term appears in title/description (substring match)
+                try:
+                    text = f"{article.get('title', '')} {article.get('description', '')}".lower()
+                    if search_terms and any(term in text for term in search_terms):
+                        relevance_score = min(1.0, relevance_score + 0.25)
+                except Exception:
+                    pass
                 
                 if relevance_score >= self.relevance_threshold:
                     article['relevance_score'] = relevance_score
@@ -409,7 +417,7 @@ class ContentFilter:
         }
 
 # Keep original factory function for compatibility
-def create_content_filter(relevance_threshold=0.05, max_articles=50, max_days=7) -> ContentFilter:
+def create_content_filter(relevance_threshold=0.05, max_articles=50, max_days=30) -> ContentFilter: #change to 7
     """Factory function to create ContentFilter instance"""
     return ContentFilter(relevance_threshold, max_articles, max_days)
 

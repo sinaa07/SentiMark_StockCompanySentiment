@@ -33,7 +33,7 @@ class NewsCollector:
             self.db_path = os.path.join(project_root, database_path)
         self.cache_expiry_days = cache_expiry_days
         self.max_articles_per_company = 15
-        self.min_articles_required = 3
+        self.min_articles_required = 1
         
         # Initialize supporting modules (will be imported when available)
         self.rss_manager = None
@@ -248,8 +248,8 @@ class NewsCollector:
             # Filter for relevance using basic filtering (will be replaced by ContentFilter)
             relevant_articles = self._filter_articles_basic(articles, company_data)
             
-            # Sort by recency and limit count
-            relevant_articles.sort(key=lambda x: x.get('published_date', ''), reverse=True)
+            # Sort by recency and limit count (use 'published' which is the normalized field)
+            relevant_articles.sort(key=lambda x: x.get('published', ''), reverse=True)
             relevant_articles = relevant_articles[:self.max_articles_per_company]
             
             logger.info(f"Found {len(relevant_articles)} relevant articles for {company_symbol}")
@@ -280,48 +280,87 @@ class NewsCollector:
         
         return mapped_articles
     
-    def _filter_articles_basic(self, articles: List[Dict[str, Any]], company_data: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """
-        Basic article filtering implementation (will be replaced by ContentFilter)
-        """
-        company_name = company_data.get('company_name', '').lower()
-        company_symbol = company_data.get('symbol', '').lower()
-        search_terms = [term.lower() for term in company_data.get('search_terms', [])]
+
+    def _filter_articles_basic(self, articles, company_data):
+        """Fixed basic filtering with better matching logic"""
+        company_terms = company_data.get("search_terms", [])
+        company_name = company_data.get('company_name', '')
+        company_symbol = company_data.get('symbol', '')
+        
+        # Normalize all search terms to lowercase
+        search_terms = []
+        
+        # Add search terms from company_data
+        if company_terms:
+            search_terms.extend([term.lower() for term in company_terms if isinstance(term, str)])
+        
+        # Add company name and variations
+        if company_name:
+            search_terms.append(company_name.lower())
+            # Add company name without common suffixes
+            clean_name = self._clean_company_name(company_name).lower()
+            if clean_name and clean_name != company_name.lower():
+                search_terms.append(clean_name)
+        
+        # Add symbol
+        if company_symbol:
+            search_terms.append(company_symbol.lower())
+        
+        # Remove duplicates
+        search_terms = list(set(search_terms))
+        
+        logger.info(f"Filtering with search terms: {search_terms}")
         
         relevant_articles = []
         
         for article in articles:
-            title = article.get('title', '').lower()
-            content = article.get('description', '').lower()
+            title = article.get("title", "").lower()
+            description = article.get("description", "").lower()
+            article_text = f"{title} {description}"
             
-            # Simple keyword match ing
             is_relevant = False
+            matched_terms = []
             
-            # Check if company name or symbol in title (high relevance)
-            if company_name in title or company_symbol in title:
-                is_relevant = True
-                article['relevance_score'] = 0.9
-            
-            # Check search terms in title
-            elif any(term in title for term in search_terms):
-                is_relevant = True
-                article['relevance_score'] = 0.8
-            
-            # Check company name in content (lower relevance)
-            elif company_name in content or company_symbol in content:
-                is_relevant = True
-                article['relevance_score'] = 0.6
-            
-            # Check search terms in content (lowest relevance)
-            elif any(term in content for term in search_terms):
-                is_relevant = True
-                article['relevance_score'] = 0.5
+            # Check for matches with any search term
+            for term in search_terms:
+                if term in article_text:
+                    is_relevant = True
+                    matched_terms.append(term)
+                    break
+                
+                # Also check for partial matches (words within the term)
+                term_words = term.split()
+                if len(term_words) > 1:
+                    # Check if all words of the term appear in the article
+                    if all(word in article_text for word in term_words):
+                        is_relevant = True
+                        matched_terms.append(term)
+                        break
             
             if is_relevant:
+                article["relevance_score"] = 0.7
+                article["matched_terms"] = matched_terms
                 relevant_articles.append(article)
+                logger.debug(f"Matched article: {title[:60]}... (terms: {matched_terms})")
         
+        logger.info(f"Found {len(relevant_articles)} relevant articles out of {len(articles)} total")
         return relevant_articles
-    
+
+    def _clean_company_name(self, company_name: str) -> str:
+        """Remove common company suffixes - this method is missing from news_collector.py"""
+        if not company_name:
+            return ""
+        
+        clean_name = company_name.strip()
+        suffixes = [' Limited', ' Ltd', ' Pvt', ' Private', ' Company', ' Corp', ' Corporation', ' Inc']
+        
+        for suffix in suffixes:
+            if clean_name.endswith(suffix):
+                clean_name = clean_name[:-len(suffix)].strip()
+                break
+        
+        return clean_name
+
     def store_news_cache(self, company_symbol: str, articles: List[Dict[str, Any]]):
         """
         Store fetched articles in cache for future requests
@@ -461,7 +500,7 @@ if __name__ == "__main__":
         "series": "EQ",
         "isin": "INE742F01042",
         "validated": True,
-        "timestamp": "2025-09-11T09:45:00Z",
+        "timestamp": "2025-09-22T09:45:00Z",
         "source": "nse_database",
         "ready_for_news_scraper": True
     }

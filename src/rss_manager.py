@@ -52,10 +52,10 @@ class RSSManager:
                 'description_field': 'summary',
                 'date_field': 'published'
             },
-            'moneycontrol': {
-                'name': 'Moneycontrol Markets',
-                'url': 'https://www.moneycontrol.com/rss/business.xml',
-                'backup_url': 'https://www.moneycontrol.com/rss/marketsnews.xml',
+            'business_standard': {
+                'name': 'Business Standard',
+                'url': 'https://www.business-standard.com/rss/markets-106.rss',
+                'backup_url': 'https://www.business-standard.com/rss/finance-103.rss',
                 'format': 'xml',
                 'encoding': 'utf-8',
                 'priority': 2,
@@ -63,7 +63,94 @@ class RSSManager:
                 'description_field': 'summary',
                 'date_field': 'published'
             },
-            
+            'livemint': {
+                'name': 'LiveMint Markets',
+                'url': 'https://www.livemint.com/rss/markets',
+                'backup_url': 'https://www.livemint.com/rss/companies',
+                'format': 'xml',
+                'encoding': 'utf-8',
+                'priority': 3,
+                'active': True,
+                'description_field': 'summary',
+                'date_field': 'published'
+            },
+            'hindu_businessline': {
+                'name': 'Hindu BusinessLine',
+                'url': 'https://www.thehindubusinessline.com/markets/stock-markets/feeder/default.rss',
+                'backup_url': 'https://www.thehindubusinessline.com/companies/feeder/default.rss',
+                'format': 'xml',
+                'encoding': 'utf-8',
+                'priority': 4,
+                'active': True,
+                'description_field': 'summary',
+                'date_field': 'published'
+            },
+            'financial_express': {
+                'name': 'Financial Express',
+                'url': 'https://www.financialexpress.com/market/rss/',
+                'backup_url': 'https://www.financialexpress.com/industry/rss/',
+                'format': 'xml',
+                'encoding': 'utf-8',
+                'priority': 5,
+                'active': True,
+                'description_field': 'summary',
+                'date_field': 'published'
+            },
+            'ndtv_business': {
+                'name': 'NDTV Business',
+                'url': 'https://feeds.feedburner.com/ndtvprofit-latest',
+                'backup_url': 'https://www.ndtv.com/business/rss',
+                'format': 'xml',
+                'encoding': 'utf-8',
+                'priority': 6,
+                'active': True,
+                'description_field': 'summary',
+                'date_field': 'published'
+            },
+            'zee_business': {
+                'name': 'Zee Business',
+                'url': 'https://zeenews.india.com/rss/business.xml',
+                'backup_url': 'https://zeenews.india.com/rss/stock-market.xml',
+                'format': 'xml',
+                'encoding': 'utf-8',
+                'priority': 7,
+                'active': True,
+                'description_field': 'summary',
+                'date_field': 'published'
+            },
+            'moneycontrol': {
+                'name': 'Moneycontrol Markets',
+                'url': 'https://www.moneycontrol.com/rss/business.xml',
+                'backup_url': 'https://www.moneycontrol.com/rss/marketsnews.xml',
+                'format': 'xml',
+                'encoding': 'utf-8',
+                'priority': 8,
+                'active': False,  # Disabled due to 403 errors
+                'description_field': 'summary',
+                'date_field': 'published'
+            },
+            'news18_business': {
+                'name': 'News18 Business',
+                'url': 'https://www.news18.com/rss/business.xml',
+                'backup_url': 'https://www.news18.com/rss/india.xml',
+                'format': 'xml',
+                'encoding': 'utf-8',
+                'priority': 9,
+                'active': True,
+                'description_field': 'summary',
+                'date_field': 'published'
+            },
+            'outlook_money': {
+                'name': 'Outlook Money',
+                'url': 'https://www.outlookindia.com/rss/business',
+                'backup_url': 'https://www.outlookindia.com/business/rss',
+                'format': 'xml',
+                'encoding': 'utf-8',
+                'priority': 10,
+                'active': True,
+                'description_field': 'summary',
+                'date_field': 'published'
+            }
         }
     
     def fetch_all_rss_feeds(self) -> Dict[str, Any]:

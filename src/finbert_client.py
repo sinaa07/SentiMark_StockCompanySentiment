@@ -3,8 +3,9 @@ import asyncio
 import aiohttp
 import logging
 import time
+import re
 from typing import List, Dict, Any, Optional, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 
 logging.basicConfig(level=logging.INFO)
@@ -66,6 +67,9 @@ class FinBERTClient:
             # Aggregate chunk-level results to article-level
             article_sentiments = self._aggregate_chunks_to_articles(batch_results, preprocessed_data)
             
+            # Apply light heuristic to correct obvious misclassifications using titles
+            self._apply_title_heuristics(article_sentiments)
+            
             # Calculate company-level weighted sentiment
             company_sentiment = self._calculate_company_sentiment(article_sentiments, 
                                                                preprocessed_data, 
@@ -80,6 +84,7 @@ class FinBERTClient:
                     'total_articles': preprocessed_data['articles_processed'],
                     'total_chunks': preprocessed_data['total_chunks'],
                     'batches_processed': len(preprocessed_data['batches']),
+                    'articles_analyzed': len(article_sentiments),
                     'analysis_timestamp': datetime.now().isoformat(),
                     'model_used': 'ProsusAI/finbert'
                 }
@@ -244,14 +249,15 @@ class FinBERTClient:
         """Aggregate chunk-level sentiment to article-level sentiment."""
         article_groups = {}
         
-        # Group chunks by original article
+        # Group chunks by original article (prefer stable link when available)
         for batch_result in batch_results:
             if not batch_result.get('success'):
                 continue
                 
             for chunk in batch_result['chunks']:
                 metadata = chunk['metadata']
-                article_key = f"{metadata['source']}_{metadata['original_title']}"
+                link = metadata.get('link')
+                article_key = link if link else f"{metadata['source']}_{metadata['original_title']}"
                 
                 if article_key not in article_groups:
                     article_groups[article_key] = {
@@ -312,7 +318,7 @@ class FinBERTClient:
             weighted_sentiments = []
             total_weight = 0
             
-            current_time = datetime.now()
+            current_time = datetime.now(timezone.utc)
             
             for article in article_sentiments:
                 # Recency factor (decay over 3 days)
@@ -437,6 +443,51 @@ class FinBERTClient:
             distribution[label] += 1
         
         return distribution
+
+    def _apply_title_heuristics(self, article_sentiments: List[Dict[str, Any]]):
+        """Adjust sentiment for headlines with clear directional cues.
+        Only small nudges; does not override model outright.
+        """
+        try:
+            positive_cues = [
+                'upgrade', 'overweight', 'outperform', 'beats', 'beat estimates', 'record high',
+                'surge', 'soar', 'jumps', 'spikes', 'rallies', 'raises guidance', 'hikes target',
+                'profit rises', 'revenue grows', 'strong results', 'wins order', 'secures contract'
+            ]
+            negative_cues = [
+                'downgrade', 'underweight', 'underperform', 'misses', 'miss estimates', 'plunge',
+                'falls', 'drops', 'sinks', 'tumbles', 'cuts guidance', 'slashes target',
+                'loss widens', 'profit falls', 'revenue declines', 'weak results'
+            ]
+            pct_up_patterns = [r'\bup\s*\d+%\b', r'\bjump\s*\d+%\b', r'\bsoar\s*\d+%\b', r"\bup\s*\d+\.\d+%\b"]
+            pct_down_patterns = [r'\bdown\s*\d+%\b', r'\bfall\s*\d+%\b', r'\bplunge\s*\d+%\b', r"\bdown\s*\d+\.\d+%\b"]
+
+            for article in article_sentiments:
+                title = (article.get('title') or '').lower()
+                if not title:
+                    continue
+
+                adjustment = 0.0
+                # Cue-based adjustments
+                if any(cue in title for cue in positive_cues):
+                    adjustment += 0.05
+                if any(cue in title for cue in negative_cues):
+                    adjustment -= 0.05
+
+                # Percentage move adjustments
+                if any(re.search(pat, title) for pat in pct_up_patterns):
+                    adjustment += 0.07
+                if any(re.search(pat, title) for pat in pct_down_patterns):
+                    adjustment -= 0.07
+
+                if adjustment != 0.0:
+                    original = article['sentiment_score']
+                    article['sentiment_score'] = max(-1.0, min(1.0, article['sentiment_score'] + adjustment))
+                    # Slightly boost confidence if cues align with move
+                    article['confidence'] = max(0.0, min(1.0, article['confidence'] + abs(adjustment) * 0.3))
+                    logger.debug(f"Adjusted sentiment for title cue: '{title[:60]}...' {original:.3f} -> {article['sentiment_score']:.3f}")
+        except Exception as e:
+            logger.warning(f"Title heuristic adjustment failed: {e}")
     
     def _create_empty_result(self, company_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create empty result structure for error cases."""

@@ -42,10 +42,11 @@ class FinBERTPreprocessor:
             
             # Clean and prepare article text
             cleaned_articles = self._clean_articles(top_articles)
+            logger.info(f"Cleaning complete: {len(cleaned_articles)} articles retained, {len(top_articles) - len(cleaned_articles)} skipped for empty text")
             
             # Chunk long articles with context awareness
             chunked_articles = self.chunk_long_articles(cleaned_articles)
-            logger.info(f"Created {len(chunked_articles)} chunks from {len(top_articles)} articles")
+            logger.info(f"Created {len(chunked_articles)} chunks from {len(cleaned_articles)} cleaned articles")
             
             # Create batched input for API calls
             batched_input = self.create_finbert_input_batch(chunked_articles)
@@ -80,8 +81,17 @@ class FinBERTPreprocessor:
                 cleaned_article['title'] = self._clean_text(str(title))
                 
                 # Clean content - handle None/empty values
-                content = article.get('content', '') or ''
+                content = article.get('description', '') or ''
                 cleaned_article['content'] = self._clean_text(str(content))
+
+                # Normalize/propagate metadata expected downstream
+                # Map 'published' -> 'published_date' for consistent usage
+                if 'published_date' not in cleaned_article:
+                    cleaned_article['published_date'] = article.get('published', '') or article.get('published_date', '')
+                # Ensure source present
+                cleaned_article['source'] = article.get('source', cleaned_article.get('source', 'unknown')) or 'unknown'
+                # Keep link if available for unique identification
+                cleaned_article['link'] = article.get('link', cleaned_article.get('link', ''))
                 
                 # Combine title and content for processing
                 combined_text = ""
@@ -142,6 +152,7 @@ class FinBERTPreprocessor:
             try:
                 full_text = article.get('full_text', '')
                 if not full_text:
+                    logger.debug("Skipping chunking for article with empty full_text")
                     continue
                 
                 # Estimate tokens (rough approximation: 1 token ≈ 4 characters)
@@ -154,6 +165,7 @@ class FinBERTPreprocessor:
                         'source': str(article.get('source', 'unknown')),
                         'published_date': article.get('published_date'),
                         'original_title': str(article.get('title', '')),
+                        'link': article.get('link', ''),
                         'chunk_id': 0,
                         'total_chunks': 1
                     }
@@ -195,6 +207,7 @@ class FinBERTPreprocessor:
                         'source': str(article.get('source', 'unknown')),
                         'published_date': article.get('published_date'),
                         'original_title': str(article.get('title', '')),
+                        'link': article.get('link', ''),
                         'chunk_id': chunk_id,
                         'total_chunks': 0  # Will be updated after all chunks are created
                     }
@@ -219,6 +232,7 @@ class FinBERTPreprocessor:
                     'source': str(article.get('source', 'unknown')),
                     'published_date': article.get('published_date'),
                     'original_title': str(article.get('title', '')),
+                    'link': article.get('link', ''),
                     'chunk_id': chunk_id,
                     'total_chunks': 0
                 }
@@ -307,7 +321,8 @@ class FinBERTPreprocessor:
                             'source': source,
                             'published_date': chunk.get('published_date'),
                             'original_title': title,
-                            'chunk_position': f"{chunk_id + 1}/{chunk.get('total_chunks', 1)}"
+                            'chunk_position': f"{chunk_id + 1}/{chunk.get('total_chunks', 1)}",
+                            'link': chunk.get('link', '')
                         }
                     }
                     
@@ -334,17 +349,18 @@ class FinBERTPreprocessor:
                     'chunk_metadata': current_batch.copy()
                 })
             
-            # Count unique articles safely
-            unique_titles = set()
+            # Count unique articles safely: use combination of source/title/link to reduce collisions
+            unique_keys = set()
             for chunk in processed_articles:
-                title = chunk.get('original_title')
-                if title:
-                    unique_titles.add(str(title))
+                key_source = str(chunk.get('source', 'unknown'))
+                key_title = str(chunk.get('original_title', ''))
+                key_link = str(chunk.get('link', ''))
+                unique_keys.add((key_source, key_title, key_link))
             
             result = {
                 'batches': batches,
                 'total_chunks': len(processed_articles),
-                'articles_processed': len(unique_titles),
+                'articles_processed': len(unique_keys),
                 'processing_timestamp': datetime.now().isoformat(),
                 'batch_config': {
                     'max_tokens_per_chunk': self.max_tokens_per_chunk,
@@ -354,6 +370,10 @@ class FinBERTPreprocessor:
             }
             
             logger.info(f"Created {len(batches)} batches with {result['total_chunks']} total chunks")
+            # Log missing metadata stats
+            missing_dates = sum(1 for b in batches for m in b['chunk_metadata'] if not m['metadata'].get('published_date'))
+            if missing_dates:
+                logger.warning(f"{missing_dates} chunks with missing published_date (check 'published' field mapping upstream)")
             return result
             
         except Exception as e:
