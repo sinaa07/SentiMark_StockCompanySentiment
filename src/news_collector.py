@@ -51,10 +51,10 @@ class NewsCollector:
             self.rss_manager = RSSManager()
             
             # These will be uncommented when modules are created
-            # from content_filter import ContentFilter
-            # from news_database import NewsDatabase
-            # self.content_filter = ContentFilter()
-            # self.news_database = NewsDatabase(self.db_path)
+            from content_filter import ContentFilter
+            #from news_database import NewsDatabase
+            self.content_filter = ContentFilter()
+            #self.news_database = NewsDatabase(self.db_path)
             
             logger.info("Supporting modules initialized successfully")
         except ImportError as e:
@@ -244,16 +244,16 @@ class NewsCollector:
             
             # Map RSS Manager field names to expected format
             articles = self.map_rss_articles_to_expected_format(raw_articles)
-            
-            # Filter for relevance using basic filtering (will be replaced by ContentFilter)
-            relevant_articles = self._filter_articles_basic(articles, company_data)
-            
-            # Sort by recency and limit count (use 'published' which is the normalized field)
-            relevant_articles.sort(key=lambda x: x.get('published', ''), reverse=True)
-            relevant_articles = relevant_articles[:self.max_articles_per_company]
-            
-            logger.info(f"Found {len(relevant_articles)} relevant articles for {company_symbol}")
-            return relevant_articles
+
+            # Apply ContentFilter to ensure only filtered articles are cached and returned
+            if self.content_filter:
+                filtered_articles = self.content_filter.filter_company_articles(articles, company_data)
+            else:
+                # Fallback to basic filter if ContentFilter not available
+                filtered_articles = self._filter_articles_basic(articles, company_data)
+
+            logger.info(f"Found {len(filtered_articles)} relevant articles for {company_symbol} after content filtering")
+            return filtered_articles
             
         except Exception as e:
             logger.error(f"Error fetching fresh news for {company_symbol}: {e}")

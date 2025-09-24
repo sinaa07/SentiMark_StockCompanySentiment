@@ -1,155 +1,116 @@
-MVP Phase 1: Final Feature List
+Let’s keep it simple and incremental. Below is a clean flow that inserts a GPT/Gemini “formatting” layer before FinBERT, and removes content filtering entirely, while fitting your current files.
 
-## Core Components to Build
+### High-level Flow (v2)
+1. `news_collector.py`: Collect raw articles as-is (no filtering).
+2. NEW LLM layer: Normalize/condense each article into a consistent schema (title + canonical_text + metadata), ready for FinBERT.
+3. `finbert_preprocessor.py`: Consume the LLM-normalized text directly; ensure idempotent text cleaning only.
+4. `finbert_client.py`: Run sentiment on the normalized text.
+5. `db_manager.py`: Persist results and cache LLM outputs to avoid re-calls.
+6. `pipeline.py`: Orchestrate steps; remove content filtering stage.
 
-### 1. `news_collector.py` - Main Pipeline
+### What to change in existing files
+- `src/pipeline.py`
+  - Remove any references to `content_filter.py` / `content_filter_v0.py`.
+  - Insert a new step after collection to call the LLM formatter (batch if possible).
+  - Ensure downstream stages (preprocessor → finbert → db) use the normalized payload.
+- `src/news_collector.py`
+  - Keep behavior to fetch and dedupe articles.
+  - Ensure each article has stable identifiers (e.g., `url`, `source`, `published_at`, `tickers`) for caching LLM results.
+- `src/finbert_preprocessor.py`
+  - Accept already-normalized text from the LLM layer.
+  - Minimize transformations: light cleaning only (whitespace, strange unicode); no filtering.
+  - Enforce length constraints FinBERT expects (truncate safely if needed).
+- `src/finbert_client.py`
+  - No change in API, but ensure it reads the normalized text field (e.g., `canonical_text`) consistently.
+- `src/db_manager.py`
+  - Add tables/columns for LLM-normalized outputs and their checksum/hash for caching.
+  - Upsert semantics keyed by article URL or a content hash to prevent double-charging LLM.
+- `app.py`
+  - If the UI shows raw vs processed, optionally surface the normalized text as an inspectable field.
+- `config/settings.py` and `config/api_keys.py`
+  - Add config for model provider (openai vs gemini), model name, temperature, max tokens, cost caps, and retry settings.
 
-Essential Functions:
-- `collect_company_news(company_data)` - Main orchestrator
-- `check_cache_first(company_symbol)` - Look for existing 3-day cache
-- `fetch_fresh_news(company_data)` - Trigger when cache miss/stale
-- `store_news_cache(company_symbol, articles)` - Save results for future searches
+### Files to remove
+- `src/content_filter.py`
+- `src/content_filter_v0.py`
+- Any pipeline references to these.
 
-### 2. `rss_manager.py` - RSS Operations
+### New files to add and their responsibilities
+- `src/llm_formatter.py`
+  - Purpose: Given a raw article dict, call GPT/Gemini to produce a normalized, FinBERT-ready payload.
+  - Core features:
+    - Provider-agnostic interface with a simple `format_article(article) -> normalized_article`.
+    - Prompt templates that enforce a strict output schema and style:
+      - Required fields: `title`, `canonical_text`, `summary` (optional), `source`, `published_at`, `tickers`, `language`, `url`, `llm_version`, `llm_raw_tokens`.
+      - Constraints: English (or original language passthrough + translated flag), remove boilerplate, exclude disclaimers/market open/close noise, keep factual tone, avoid hallucinating tickers.
+    - Batch mode: `format_articles([...])` to reduce overhead where feasible.
+    - Caching hooks: check db/file cache before calling; write results after success.
+    - Provider adapters for OpenAI and Gemini.
+    - Rate-limit and retry/backoff with budget guardrails.
+- `src/llm_providers.py`
+  - Purpose: Thin adapters for OpenAI/Gemini calls.
+  - Core features:
+    - `OpenAIProvider.call(prompt, params) -> text/json`
+    - `GeminiProvider.call(prompt, params) -> text/json`
+    - Standardize errors, timeouts, and token usage returns.
+- `src/prompts/news_normalization_prompt.txt` (or `.md`)
+  - Purpose: Single source of truth for the normalization instructions.
+  - Core features:
+    - Clear schema spec; JSON output only; no prose.
+    - Style constraints and banned content notes (no opinions, no price targets unless present).
+    - Shortness policy: 1-2 sentence summary, canonical body under a token budget.
+- `src/schema.py`
+  - Purpose: Pydantic dataclasses (or lightweight validators) to validate LLM outputs.
+  - Core features:
+    - `NormalizedArticle` with strict types and length bounds.
+    - Validation for date formats, ticker arrays, non-empty `canonical_text`.
+- `src/cache.py` (optional if you centralize in `db_manager.py`)
+  - Purpose: Compute content hash (title + url + raw_text) and manage LLM response cache.
+  - Core features:
+    - `get_cached_normalization(hash)`, `set_cached_normalization(hash, result)`
 
-Essential Functions:
-- `fetch_all_rss_feeds()` - Parallel fetch from ET, Moneycontrol, Business Standard
-- `parse_rss_content(rss_data)` - Extract articles from RSS XML/JSON
-- `handle_rss_failures(failed_sources)` - Continue with available sources
-- `get_rss_source_config()` - RSS URLs and settings
+### Data Contract between stages
+- Input to LLM formatter (from `news_collector.py`):
+  - `url`, `title`, `raw_text`, `source`, `published_at`, `tickers` (from mapping), `language` (if detectable)
+- Output from LLM formatter (consumed by `finbert_preprocessor.py`):
+  - `title` (cleaned, factual)
+  - `canonical_text` (concise, noise-free body for sentiment)
+  - `summary` (1-2 sentence optional)
+  - `tickers` (validated against `data/stock_mappings.json`)
+  - `source`, `published_at`, `url`
+  - `language`, `translated` (bool if translation used)
+  - `llm_version`, `tokens_used`, `cache_key`
 
-### 3. `content_filter.py` - Simple Relevance
+### Minimal changes to tests
+- `tests/test_news_scraper.py`
+  - Keep as-is for collection.
+- Add tests:
+  - `tests/test_llm_formatter.py`: prompt conformance, schema validation, caching behavior, fallback on malformed JSON.
+  - `tests/test_pipeline_integration.py`: ensure pipeline skips filtering, calls formatter, feeds FinBERT.
+- Update:
+  - `tests/test_sentiment.py`: expect `canonical_text` as the sentiment input.
+  - Remove filtering-related tests.
 
-Essential Functions:
-- `filter_company_articles(articles, company_data)` - Simple keyword matching
-- `check_article_relevance(article, company_name, ticker)` - Basic string matching
-- `deduplicate_articles(articles)` - Remove same articles from multiple sources
-- `sort_by_recency(articles)` - Newest first for FinBERT
+### Migration and caching
+- DB changes:
+  - Add `normalized_articles` table or extend existing with fields:
+    - `cache_key` (unique), `normalized_json`, `tokens_used`, `provider`, `model`, `created_at`, `updated_at`
+  - Add an index on `cache_key`.
+- Caching policy:
+  - Compute `cache_key = sha256(url + title + first_1k_chars_raw_text)`.
+  - On hit, skip LLM call; on miss, call and store.
+- Backfill:
+  - Optional utility in `pipeline.py` to re-normalize recent N days with a budget cap.
 
-### 4. `news_database.py` - Cache Storage
+### Cost/budget guardrails
+- Hard cap on total tokens per run in `settings.py`.
+- Per-article truncation before LLM (e.g., keep first N chars) to bound spend.
+- Batch scheduling and exponential backoff on rate limits.
 
-Essential Functions:
-- `create_news_tables()` - Set up cache database schema
-- `store_articles(company_symbol, articles, expiry_date)` - Cache news
-- `get_cached_articles(company_symbol)` - Retrieve from cache
-- `cleanup_expired_cache()` - Remove old entries (background job)
+### Rollout plan
+- Phase 1: Add new modules (`llm_formatter.py`, `llm_providers.py`, `schema.py`, prompts), wire into `pipeline.py`, keep FinBERT and DB unchanged except for new table/columns.
+- Phase 2: Remove `content_filter*` and their imports from code and tests.
+- Phase 3: Add caching and budget guardrails; monitor logs.
+- Phase 4: (Optional) UI tweak in `app.py` to display normalized summary.
 
-### 5. `finbert_preprocessor.py` - FinBERT Ready Output
-
-Essential Functions:
-- `prepare_for_finbert(articles)` - Format articles for sentiment analysis
-- `chunk_long_articles(articles)` - Split articles if too long for FinBERT
-- `create_finbert_input_batch(processed_articles)` - Final formatted output
-- `add_metadata(finbert_input, company_data)` - Include company context
-
-## Integration Flow
-
-### Complete Pipeline:
-```
-user_input_processor.py output → 
-news_collector.collect_company_news() → 
-[Cache check → RSS fetch → Simple filter → Store cache] → 
-finbert_preprocessor.prepare_for_finbert() → 
-Ready for FinBERT sentiment analysis
-```
-
-## Simple Feature Specifications
-
-### Cache Strategy:
-- 3-day expiry per company
-- SQLite storage (reuse your existing database)
-- Simple TTL (time-to-live) based cleanup
-
-### RSS Sources (3 sources max):
-- Economic Times Business RSS
-- Moneycontrol Markets RSS 
-- Business Standard Markets RSS
-
-### Simple Filtering Rules:
-- Company name in title or description
-- Ticker symbol mentioned
-- Basic financial keywords (earnings, results, revenue, profit)
-- Recency filter (3-7 days old maximum)
-
-### Error Handling:
-- RSS fetch timeouts (10 seconds max per source)
-- Partial results (continue with available sources if 1-2 fail)
-- Empty results (expand time window to 7 days if no 3-day news)
-- Graceful degradation (return cached results even if stale)
-
-## Performance Targets:
-- Cache hit: <1 second response
-- Cache miss: 5-10 seconds response
-- Article count: 5-15 articles per company
-- Storage: <100MB total cache size
-
-## Testing Requirements:
-
-### Test Cases:
-- High-news companies (Reliance, Adani, TCS)
-- Medium-news companies (mid-cap stocks) 
-- Rare-news companies (smaller NSE stocks)
-- Cache hit/miss scenarios
-- RSS source failures
-
-### Success Criteria:
-- Response time acceptable (<10 seconds fresh, <1 second cached)
-- Relevant articles found (>80% company-related content)
-- FinBERT input quality (clean, readable article text)
-- System reliability (handles source failures gracefully)
-
-## Future Enhancement Hooks:
-- Easy to add AI relevance later (just replace content_filter functions)
-- Expandable RSS sources (add more feeds to rss_manager config)
-- Upgradeable caching (switch to Redis/memcached if needed)
-
-This MVP gives you a working end-to-end news pipeline that you can test, measure, and iteratively improve.
-
-Ready to start building these core components?
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-**How to Run the Complete Pipeline:**
-
-**Prerequisites:**
-• Set up API credentials (Hugging Face token for FinBERT)
-• Install dependencies (aiohttp, asyncio, etc.)
-• Ensure all 5 modules are in the same directory/package
-• Set up RSS source URLs in `rss_manager.py`
-• Initialize database schema with `news_database.py`
-
-**Pipeline Execution Flow:**
-
-**1. Manual Testing (Individual Modules):**
-• Test `finbert_preprocessor.py` - Run standalone to verify preprocessing
-• Test `finbert_client.py` - Run standalone with mock data to verify API integration
-• Test each module individually before full integration
-
-**2. Integration Testing:**
-• Create `test_pipeline.py` - Import all modules and test end-to-end flow
-• Use mock company data to verify complete pipeline works
-• Test with small batch first (1-2 companies)
-
-**3. Production Usage Options:**
-
-**Option A: Script-based**
-• Create `main.py` - Import all modules, define company input, execute pipeline
-• Run: `python main.py --company RELIANCE` for single company analysis
-• Add argument parsing for multiple companies
-
-**Option B: API Server**
-• Create `app.py` with FastAPI/Flask - Expose pipeline as REST endpoints
-• POST `/analyze` with company data, return sentiment results
-• Run server: `uvicorn app:app` or `python app.py`
-
-**Option C: Scheduled Jobs**
-• Create `scheduler.py` - Run pipeline on predefined company list
-• Use cron jobs or task schedulers for regular sentiment updates
-• Store results in database for historical tracking
-
-**4. Input Format:**
-• Company data: `{'symbol': 'RELIANCE', 'name': 'Reliance Industries', 'sector': 'Oil & Gas'}`
-• Can process single company or batch of companies
-• Results include sentiment scores, confidence, and article details
-
-**Which approach would you prefer for running your pipeline?**
+This gives you a straightforward “LLM normalization → FinBERT” pipeline, simplifies preprocessing, removes content filtering, and controls cost with caching and constraints.

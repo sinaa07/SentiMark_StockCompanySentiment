@@ -45,6 +45,8 @@ class SentimentPipeline:
                 "stage": "complete",
                 "company": company_data,
                 "sentiment": sentiment_result,
+                #"preprocessed": preprocessed,
+                
             }
 
         except Exception as e:
