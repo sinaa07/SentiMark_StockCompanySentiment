@@ -309,55 +309,27 @@ class FinBERTClient:
     def _calculate_company_sentiment(self, article_sentiments: List[Dict[str, Any]], 
                                    preprocessed_data: Dict[str, Any],
                                    company_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Calculate weighted company-level sentiment using our aggregation strategy."""
+        """Calculate company-level sentiment using simple unweighted average (no relevance weighting)."""
         if not article_sentiments:
             return self._create_empty_sentiment()
-        
+
         try:
-            # Calculate weights for each article
-            weighted_sentiments = []
-            total_weight = 0
-            
-            current_time = datetime.now(timezone.utc)
-            
-            for article in article_sentiments:
-                # Recency factor (decay over 3 days)
-                recency_weight = self._calculate_recency_weight(article['published_date'], current_time)
-                
-                # Content length factor (more chunks = slightly higher weight)
-                length_weight = min(1.0 + (article['chunk_count'] - 1) * 0.1, 1.5)  # Cap at 1.5x
-                
-                # Confidence factor (higher confidence = higher weight)
-                confidence_weight = article['confidence']
-                
-                # Combined weight
-                total_article_weight = recency_weight * length_weight * confidence_weight
-                
-                weighted_sentiment = article['sentiment_score'] * total_article_weight
-                weighted_sentiments.append(weighted_sentiment)
-                total_weight += total_article_weight
-            
-            # Calculate weighted average
-            if total_weight > 0:
-                overall_sentiment = sum(weighted_sentiments) / total_weight
-            else:
-                overall_sentiment = sum(article['sentiment_score'] for article in article_sentiments) / len(article_sentiments)
-            
-            # Calculate confidence based on agreement and data quality
-            confidence = self._calculate_overall_confidence(article_sentiments, total_weight)
-            
-            # Classify sentiment
+            overall_sentiment = sum(article['sentiment_score'] for article in article_sentiments) / len(article_sentiments)
+
+            # Confidence: simple average of article confidences without extra weighting
+            confidence = sum(article['confidence'] for article in article_sentiments) / len(article_sentiments)
+
             sentiment_label = self._classify_sentiment(overall_sentiment)
-            
+
             return {
                 'overall_sentiment': round(overall_sentiment, 4),
                 'sentiment_label': sentiment_label,
                 'confidence': round(confidence, 4),
                 'article_count': len(article_sentiments),
-                'total_weight': round(total_weight, 4),
+                'total_weight': 0.0,
                 'sentiment_distribution': self._get_sentiment_distribution(article_sentiments)
             }
-            
+
         except Exception as e:
             logger.error(f"Error calculating company sentiment: {str(e)}")
             return self._create_empty_sentiment()

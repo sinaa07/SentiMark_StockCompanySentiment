@@ -34,9 +34,11 @@ class SentimentPipeline:
             if not articles:
                 return {"stage": "news_collection", "error": "No articles found"}
 
-            filtered = self.filter.filter_company_articles(articles, company_data)
-            if not filtered:
-                return {"stage": "content_filter", "error": "No relevant articles after filtering"}
+            # filtered = self.filter.filter_company_articles(articles, company_data)
+            # if not filtered:
+            #     return {"stage": "content_filter", "error": "No relevant articles after filtering"}
+            # Bypass content filtering to include all collected articles
+            filtered = articles
 
             preprocessed = self.preprocessor.prepare_for_finbert(filtered)
             sentiment_result = await self.client.analyze_company_sentiment(preprocessed, company_data)
