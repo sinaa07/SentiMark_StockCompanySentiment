@@ -13,6 +13,7 @@ from typing import Dict, List, Optional, Any
 import sqlite3
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from llm_web_searcher import LLMWebSearcher   # ✅ Add this
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -42,6 +43,7 @@ class NewsCollector:
         self.news_database = None
         
         self._initialize_modules()
+        self.llm_searcher = LLMWebSearcher()
         self._ensure_news_tables()
     
     def _initialize_modules(self):
@@ -207,64 +209,70 @@ class NewsCollector:
     
     def fetch_fresh_news(self, company_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
-        Fetch fresh news from RSS sources when cache miss occurs
-        
-        Args:
-            company_data: Company information from user input processor
-            
-        Returns:
-            List of relevant articles
+        Fetch fresh news from RSS sources and Gemini LLM when cache miss occurs.
         """
         company_symbol = company_data.get('symbol', '')
         company_name = company_data.get('company_name', '')
         search_terms = company_data.get('search_terms', [company_name])
         
         logger.info(f"Fetching fresh news for {company_symbol}")
-        
+    
         # Check if RSS manager is available
         if not self.rss_manager:
             logger.error("RSS Manager not initialized")
             return []
-        
+    
         try:
             # Fetch from RSS sources using RSS Manager
             rss_result = self.rss_manager.fetch_all_rss_feeds()
-            
-            if not rss_result.get('success', False):
-                logger.error(f"RSS fetch failed: {rss_result.get('error', 'Unknown error')}")
-                return []
-            
-            # Extract articles from RSS result
-            raw_articles = rss_result.get('articles', [])
+            raw_articles = rss_result.get('articles', []) if rss_result.get('success', False) else []
             logger.info(f"Fetched {len(raw_articles)} raw articles from RSS sources")
-            
-            if not raw_articles:
-                logger.warning("No articles returned from RSS sources")
-                return []
-            
-            # Map RSS Manager field names to expected format
-            articles = self.map_rss_articles_to_expected_format(raw_articles)
-
-            # Apply ContentFilter to ensure only filtered articles are cached and returned
-            filtered_articles = self._filter_articles_basic(articles, company_data)
-            
-            unique = {}
-            for art in filtered_articles:
+    
+            # Map RSS field names to expected format
+            rss_articles = self.map_rss_articles_to_expected_format(raw_articles)
+            filtered_rss = self._filter_articles_basic(rss_articles, company_data)
+    
+            # Deduplicate RSS internally
+            unique_rss = {}
+            for art in filtered_rss:
                 key = (art['title'].lower(), art['link'])
-                if key not in unique:
-                    unique[key] = art
-            filtered_articles = list(unique.values())
-            filtered_articles = filtered_articles[:self.max_articles_per_company]
-            for art in filtered_articles:
+                if key not in unique_rss:
+                    unique_rss[key] = art
+            filtered_rss = list(unique_rss.values())[:self.max_articles_per_company]
+            for art in filtered_rss:
                 art['weight'] = 1.0
-                
-            logger.info(f"Found {len(filtered_articles)} relevant articles for {company_symbol} after basicfiltering")
-            return filtered_articles
-            
+    
+            all_articles = filtered_rss
+    
+            # Fetch from Gemini LLM Searcher (MVP)
+            try:
+                llm_articles = self.llm_searcher.search_news(company_name, company_symbol)
+                if llm_articles:
+                    logger.info(f"Gemini fetched {len(llm_articles)} articles")
+                    # Convert Gemini articles into RSS-like structure for consistency
+                    for art in llm_articles:
+                        all_articles.append({
+                            'title': art['title'],
+                            'description': art['summary'],
+                            'link': art['url'],
+                            'published': art['published'].isoformat(),
+                            'source': art['source'],
+                            'relevance_score': art['relevance_score'],
+                            'weight': art['weight']
+                        })
+            except Exception as e:
+                logger.error(f"Gemini LLM fetch failed: {e}")
+    
+            # Deduplicate (Gemini > RSS priority)
+            deduped_articles = self._deduplicate_articles(all_articles)
+    
+            logger.info(f"Found {len(deduped_articles)} total articles after merging RSS + Gemini")
+            return deduped_articles
+    
         except Exception as e:
             logger.error(f"Error fetching fresh news for {company_symbol}: {e}")
             return []
-    
+
     def map_rss_articles_to_expected_format(self, raw_articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         mapped_articles = []
         for article in raw_articles:
@@ -350,6 +358,24 @@ class NewsCollector:
         
         logger.info(f"Found {len(relevant_articles)} relevant articles out of {len(articles)} total")
         return relevant_articles
+
+    def _deduplicate_articles(self, articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Deduplicate articles by URL. Gemini articles take priority over RSS.
+        """
+        seen_urls = set()
+        deduped = []
+    
+        # Sort so that Gemini articles come first
+        sorted_articles = sorted(articles, key=lambda a: 0 if a.get("source") == "gemini" else 1)
+    
+        for art in sorted_articles:
+            url = art.get('link') or art.get('url')
+            if url and url not in seen_urls:
+                seen_urls.add(url)
+                deduped.append(art)
+    
+        return deduped
 
     def _clean_company_name(self, company_name: str) -> str:
         """Remove common company suffixes - this method is missing from news_collector.py"""
