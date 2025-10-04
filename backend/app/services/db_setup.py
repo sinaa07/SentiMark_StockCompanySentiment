@@ -3,15 +3,15 @@ import pandas as pd
 import os
 from datetime import datetime
 import logging
-
+from app.utils import resolve_path
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class NSEDatabaseSetup:
     def __init__(self, db_path="data/nse_stocks.db", csv_path="data/nse_master.csv"):
-        self.db_path = db_path
-        self.csv_path = csv_path
+        self.db_path = resolve_path(db_path)
+        self.csv_path = resolve_path(csv_path)
         
     def create_database_directory(self):
         """Create data directory if it doesn't exist"""

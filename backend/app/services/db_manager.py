@@ -4,7 +4,7 @@ import logging
 from typing import List, Dict, Optional, Tuple
 from contextlib import contextmanager
 import json
-
+from app.utils import resolve_path
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 class NSEDatabaseManager:
     """Manager class for NSE stock database operations"""
     
-    def __init__(self, db_path="data/nse_stocks.db"):
-        self.db_path = db_path
+    def __init__(self, db_path: str=None):
+        self.db_path = resolve_path(db_path)
         self.validate_database()
     
     def validate_database(self):

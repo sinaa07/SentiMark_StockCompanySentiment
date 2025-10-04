@@ -18,7 +18,7 @@ class UserInputProcessor:
             self.db_path = resolve_path("data/nse_stocks.db")
         else:
             self.db_path = resolve_path(db_path)
-        self.db_manager = NSEDatabaseManager(db_path)
+        self.db_manager = NSEDatabaseManager(self.db_path)
         self.min_chars = min_chars
         self.debounce_delay = debounce_ms / 1000.0  # Convert to seconds
         self.last_query_time = {}
