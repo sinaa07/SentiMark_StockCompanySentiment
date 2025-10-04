@@ -4,8 +4,8 @@ import logging
 from typing import List, Dict, Optional, Any
 from datetime import datetime, timezone
 import json
-from backend.app.services.db_manager import NSEDatabaseManager
-
+from app.services.db_manager import NSEDatabaseManager
+from app.utils import resolve_path
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -13,7 +13,11 @@ logger = logging.getLogger(__name__)
 class UserInputProcessor:
     """Enhanced user input processor with database integration and autocomplete"""
     
-    def __init__(self, db_path="data/nse_stocks.db", min_chars=2, debounce_ms=300):
+    def __init__(self, db_path: str=None, min_chars=2, debounce_ms=300):
+        if db_path is None:
+            self.db_path = resolve_path("data/nse_stocks.db")
+        else:
+            self.db_path = resolve_path(db_path)
         self.db_manager = NSEDatabaseManager(db_path)
         self.min_chars = min_chars
         self.debounce_delay = debounce_ms / 1000.0  # Convert to seconds
@@ -22,8 +26,6 @@ class UserInputProcessor:
         self.max_recent_searches = 10
         
         logger.info(f"UserInputProcessor initialized with min_chars={min_chars}, debounce={debounce_ms}ms")
-    
-    # 1. Input Handling & Validation
     
     def process_raw_input(self, user_text: str) -> str:
         """

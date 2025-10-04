@@ -3,10 +3,14 @@ import argparse
 import json
 import logging
 from typing import Dict, List, Any
-from user_input_processor import UserInputProcessor
-from news_collector import NewsCollector
-from finbert_preprocessor import FinBERTPreprocessor
-from finbert_client import FinBERTClient
+from .user_input_processor import UserInputProcessor
+from .news_collector import NewsCollector
+from .finbert_preprocessor import FinBERTPreprocessor
+from .finbert_client import FinBERTClient
+from app.utils import resolve_path
+
+from dotenv import load_dotenv
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -18,7 +22,7 @@ class SentimentPipeline:
     Workflow: User Input → News Collection → Preprocessing → Local FinBERT → Aggregation
     """
     
-    def __init__(self, db_path: str = "data/nse_stocks.db"):
+    def __init__(self, db_path: str = None):
         """
         Initialize pipeline components.
         
@@ -28,6 +32,8 @@ class SentimentPipeline:
         logger.info("Initializing Sentiment Pipeline...")
         
         try:
+            if db_path is None:
+               db_path = resolve_path("data/nse_stocks.db")
             # Initialize components
             self.user_input = UserInputProcessor(db_path=db_path)
             self.news_collector = NewsCollector(database_path=db_path)
@@ -268,7 +274,7 @@ class PipelineCLI:
         )
         parser.add_argument(
             "--db-path",
-            default="data/nse_stocks.db",
+            default="backend/data/nse_stocks.db",
             help="Path to NSE stocks database"
         )
         return parser.parse_args()

@@ -13,7 +13,10 @@ from typing import Dict, List, Optional, Any
 import sqlite3
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from llm_web_searcher import LLMWebSearcher   # ✅ Add this
+from .llm_web_searcher import LLMWebSearcher  
+from app.utils import resolve_path
+from dotenv import load_dotenv
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -25,13 +28,15 @@ class NewsCollector:
     user input processing and downstream sentiment analysis
     """
     
-    def __init__(self, database_path: str = "data/nse_stocks.db", cache_expiry_days: int = 3):
+    def __init__(self, database_path: str = None, cache_expiry_days: int = 3):
         # Resolve to an absolute path anchored at project root
-        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-        if os.path.isabs(database_path):
+        # If no path is provided, use default path resolved from project root
+        if database_path is None:
+            self.db_path = resolve_path("data/nse_stocks.db")
+        elif os.path.isabs(database_path):
             self.db_path = database_path
         else:
-            self.db_path = os.path.join(project_root, database_path)
+            self.db_path = resolve_path(database_path)
             
         self.cache_expiry_days = cache_expiry_days
         self.max_articles_per_company = 15
@@ -50,7 +55,7 @@ class NewsCollector:
         """Initialize supporting modules"""
         try:
             # Import RSS Manager
-            from rss_manager import RSSManager
+            from .rss_manager import RSSManager
             self.rss_manager = RSSManager()
             
             #from content_filter import ContentFilter
