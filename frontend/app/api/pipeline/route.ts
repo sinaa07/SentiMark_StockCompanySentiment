@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Replace with your actual API endpoint
-    const response = await fetch("https://your-api-endpoint.com/api/pipeline", {
+    const response = await fetch("http://localhost:8000/api/pipeline", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

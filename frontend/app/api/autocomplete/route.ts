@@ -10,7 +10,8 @@ export async function GET(request: NextRequest) {
 
   try {
     // Replace with your actual API endpoint
-    const response = await fetch(`https://your-api-endpoint.com/api/autocomplete?query=${encodeURIComponent(query)}`)
+    const response = await fetch(`http://localhost:8000/api/autocomplete?query=${encodeURIComponent(query)}`);
+
 
     if (!response.ok) {
       throw new Error("Failed to fetch autocomplete results")
