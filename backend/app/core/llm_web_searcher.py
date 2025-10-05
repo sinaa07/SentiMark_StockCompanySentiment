@@ -94,12 +94,15 @@ class LLMWebSearcher:
         - Each sentence should add unique, valuable information for investors
         
         IMPORTANT CONSTRAINTS:
-        1. Only include articles from these credible financial sources: {sources_list}
-        2. Return maximum {self.max_articles} articles
-        3. Only recent articles (last {self.date_range_days} days)
-        4. Focus on: quarterly earnings, stock price movements, corporate actions, mergers & acquisitions, management changes, regulatory updates, sectoral trends
-        5. Do not include any text before or after the JSON array
-        6. If no articles found, return empty array: []
+        1. Only include articles published within the **last 7 days** from the current date in current month (October,2025). 
+           - Strictly check the published date in the article.
+           - If the date is missing or ambiguous, include the article.
+        2. Only include articles from these credible financial sources: {sources_list}
+        3. Return maximum {self.max_articles} articles
+        4. Only recent articles (last {self.date_range_days} days)
+        5. Focus on: quarterly earnings, stock price movements, corporate actions, mergers & acquisitions, management changes, regulatory updates, sectoral trends
+        6. Do not include any text before or after the JSON array
+        7. If no articles found, return empty array: []
         
         The JSON must be well-formed and strictly follow this structure.
         
