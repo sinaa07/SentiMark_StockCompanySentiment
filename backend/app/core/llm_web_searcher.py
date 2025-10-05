@@ -5,6 +5,12 @@ import requests
 from typing import List, Dict, Optional, Any
 from datetime import datetime, timezone, timedelta
 from urllib.parse import urlparse
+from dotenv import load_dotenv
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+dotenv_path = os.path.join(project_root, ".env")
+load_dotenv(dotenv_path)
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -17,7 +23,7 @@ class LLMWebSearcher:
     MVP implementation using Gemini API.
     """
     
-    def __init__(self, model: str = "gemini", max_articles: int = 20, date_range_days: int = 3):
+    def __init__(self, model: str = "gemini", max_articles: int = 10, date_range_days: int = 3):
         """
         Initialize the LLM web searcher.
         
@@ -67,34 +73,46 @@ class LLMWebSearcher:
         ticker_text = f" (ticker {ticker})" if ticker else ""
         sources_list = ", ".join(self.credible_sources)
         
-        prompt = f"""You are a financial news search assistant.
+        prompt = f"""You are a financial news search assistant for Indian stock markets. Search the web for the most recent financial news articles from the last {self.date_range_days} days about the company {company_name}{ticker_text}.
 
-Search the web for the most recent financial news articles from the last {self.date_range_days} days about the company {company_name}{ticker_text}.
-
-Return ONLY a JSON array of objects. Each object must have these exact fields:
-- "title" (string): Article headline
-- "url" (string): Full article URL
-- "date" (string): Publication date in YYYY-MM-DD format
-- "summary" (string): Brief article summary (1-3 sentences)
-
-IMPORTANT:
-1. Only include articles from these credible financial sources: {sources_list}
-2. Return maximum {self.max_articles} articles
-3. Only recent articles (last {self.date_range_days} days)
-4. Focus on stock market, financial performance, business news
-5. Do not include any text before or after the JSON array
-6. If no articles found, return empty array: []
-
-Example output format:
-[
-  {{
-    "title": "Company reports strong quarterly results",
-    "url": "https://economictimes.indiatimes.com/...",
-    "date": "2025-10-01",
-    "summary": "The company announced a 20% increase in profits..."
-  }}
-]"""
+        Return ONLY a JSON array of objects. Each object must have these exact fields:
+        - "title" (string): Article headline
+        - "url" (string): Full article URL
+        - "date" (string): Publication date in YYYY-MM-DD format
+        - "summary" (string): A detailed 10-sentence factual summary of the article's financial and business content
         
+        SUMMARY REQUIREMENTS:
+        - Must be around 6 to 7 sentences (full, complete sentences with proper grammar)
+        - Focus on factual information: financial figures, percentages, dates, announcements, and concrete events
+        - Include specific numbers whenever available (revenue, profit, EPS, stock price, market cap, etc.)
+        - Mention NSE/BSE stock performance, trading volumes, and price movements when available
+        - Include information about quarterly results, annual reports, board decisions, dividend announcements
+        - Reference key stakeholders: promoters, institutional investors, executives, or analysts quoted
+        - Mention regulatory filings (SEBI disclosures, BSE/NSE announcements) if applicable
+        - Avoid vague statements like "the company is performing well" - be specific with data
+        - Do not invent or assume details not present in the article
+        - Each sentence should add unique, valuable information for investors
+        
+        IMPORTANT CONSTRAINTS:
+        1. Only include articles from these credible financial sources: {sources_list}
+        2. Return maximum {self.max_articles} articles
+        3. Only recent articles (last {self.date_range_days} days)
+        4. Focus on: quarterly earnings, stock price movements, corporate actions, mergers & acquisitions, management changes, regulatory updates, sectoral trends
+        5. Do not include any text before or after the JSON array
+        6. If no articles found, return empty array: []
+        
+        The JSON must be well-formed and strictly follow this structure.
+        
+        Example output format:
+        [
+          {{
+            "title": "Reliance Industries Reports 12% Jump in Q2 Profit, Declares ₹9 Per Share Dividend",
+            "url": "https://economictimes.indiatimes.com/markets/stocks/news/reliance-industries-q2-results-profit-dividend/articleshow/123456789.cms",
+            "date": "2025-10-01",
+            "summary": "Reliance Industries Ltd (NSE: RELIANCE) reported a consolidated net profit of ₹19,323 crore for Q2 FY2026, marking a 12% increase compared to ₹17,265 crore in the same quarter last year. The company's revenue from operations stood at ₹2,35,478 crore, up 8.5% year-on-year, driven by strong performance in the retail and digital services segments. The board of directors declared an interim dividend of ₹9 per equity share, with a record date set for October 15, 2025. Reliance Jio added 15.2 million new subscribers during the quarter, taking its total subscriber base to 485 million, while average revenue per user (ARPU) increased to ₹195 from ₹181 in the previous quarter. The oil-to-chemicals (O2C) business reported an EBITDA of ₹13,845 crore, impacted by softer refining margins that averaged $8.2 per barrel. Reliance Retail's revenue grew 17% to ₹68,345 crore with the addition of 847 new stores, bringing the total store count to 18,040 across India. The company's net debt reduced to ₹1,42,890 crore from ₹1,56,234 crore in the previous quarter, reflecting improved cash flow generation. Chairman Mukesh Ambani announced plans to invest ₹75,000 crore in clean energy projects over the next three years. On NSE, Reliance shares closed at ₹2,847.50, up 4.2% on the day of the announcement, with trading volumes surging to 12.5 million shares. Analysts at ICICI Securities maintained a 'Buy' rating with a revised target price of ₹3,200, citing strong growth momentum across all business verticals."
+          }}
+        ]"""
+                
         return prompt
     
     def call_model(self, prompt: str) -> str:
@@ -114,8 +132,10 @@ Example output format:
             raise ValueError("GEMINI_API_KEY not configured")
         
         try:
-            # Gemini API endpoint
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={self.api_key}"
+            # Use Gemini 2.5 Flash - the fastest and latest model available
+            GEMINI_MODEL = "gemini-2.5-flash"
+            # Correct Gemini API endpoint using v1
+            url = f"https://generativelanguage.googleapis.com/v1/models/{GEMINI_MODEL}:generateContent?key={self.api_key}"
             
             headers = {
                 'Content-Type': 'application/json'
@@ -128,36 +148,64 @@ Example output format:
                     }]
                 }],
                 "generationConfig": {
-                    "temperature": 0.1,  # Low temperature for factual responses
-                    "topK": 40,
+                    "temperature": 0.3,
+                    "topK": 64,
                     "topP": 0.95,
-                    "maxOutputTokens": 2048,
+                    "maxOutputTokens": 8000,  # Increased to allow full response
                 }
             }
             
-            logger.debug(f"Calling Gemini API...")
-            response = requests.post(url, headers=headers, json=payload, timeout=30)
+            logger.debug(f"Calling Gemini API at: {url.replace(self.api_key, '***API_KEY_HIDDEN***')}")
+            response = requests.post(url, headers=headers, json=payload, timeout=90)
             response.raise_for_status()
             
             result = response.json()
+            logger.debug("📡 Full Gemini raw response:\n%s", json.dumps(result, indent=2))
             
             # Extract text from Gemini response structure
             if 'candidates' in result and len(result['candidates']) > 0:
                 candidate = result['candidates'][0]
-                if 'content' in candidate and 'parts' in candidate['content']:
-                    text = candidate['content']['parts'][0].get('text', '')
-                    logger.debug(f"Received response: {len(text)} characters")
-                    return text
+                
+                # Check for truncated response
+                finish_reason = candidate.get('finishReason', '')
+                if finish_reason == 'MAX_TOKENS':
+                    logger.warning("⚠️ Response was truncated due to MAX_TOKENS. Increase maxOutputTokens.")
+                
+                logger.debug(f"Candidate keys: {candidate.keys()}")
+                
+                content = candidate.get('content', {})
+                logger.debug(f"Content type: {type(content)}, Content keys: {content.keys() if isinstance(content, dict) else 'not a dict'}")
+                
+                parts = content.get('parts', [])
+                logger.debug(f"Parts: {parts}")
+                
+                if parts and len(parts) > 0:
+                    logger.debug(f"First part keys: {parts[0].keys() if isinstance(parts[0], dict) else 'not a dict'}")
+                    if 'text' in parts[0]:
+                        text = parts[0]['text']
+                        logger.debug(f"✅ Received response text ({len(text)} chars)")
+                        return text
+                    else:
+                        logger.warning(f"No 'text' key in first part. Part content: {parts[0]}")
+                else:
+                    logger.warning(f"No parts in content. Finish reason: {finish_reason}")
             
-            logger.warning("Unexpected Gemini response structure")
+            logger.warning("⚠️ Unexpected Gemini response structure")
+            logger.warning(f"Response keys: {result.keys()}")
+            if 'candidates' in result and result['candidates']:
+                logger.warning(f"First candidate: {json.dumps(result['candidates'][0], indent=2)}")
             return ""
             
         except requests.exceptions.Timeout:
             logger.error("Gemini API call timed out")
             raise
         except requests.exceptions.RequestException as e:
-            logger.error(f"Gemini API request failed: {str(e)}")
-            raise
+            # FIXED: Mask the API key in error logs
+            error_msg = str(e)
+            if self.api_key and self.api_key in error_msg:
+                error_msg = error_msg.replace(self.api_key, "***API_KEY_HIDDEN***")
+            logger.error(f"Gemini API request failed: {error_msg}")
+            raise Exception(error_msg)
         except Exception as e:
             logger.error(f"Error calling Gemini: {str(e)}")
             raise
@@ -187,6 +235,8 @@ Example output format:
                 cleaned = cleaned[:-3]
             cleaned = cleaned.strip().lstrip('json').strip()
             
+            logger.debug(f"Cleaned response to parse: {cleaned[:500]}...")
+            
             # Parse JSON
             raw_articles = json.loads(cleaned)
             
@@ -212,7 +262,8 @@ Example output format:
             
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse JSON response: {str(e)}")
-            logger.debug(f"Response was: {response[:200]}...")
+            logger.error(f"Raw response (first 1000 chars):\n{response[:1000]}")
+            logger.error(f"Cleaned response (first 1000 chars):\n{cleaned[:1000] if 'cleaned' in locals() else 'N/A'}")
             return []
         except Exception as e:
             logger.error(f"Error parsing response: {str(e)}")

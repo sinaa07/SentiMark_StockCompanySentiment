@@ -62,17 +62,17 @@ class RSSManager:
                 'description_field': 'summary',
                 'date_field': 'published'
             },
-            'business_standard': {
-                'name': 'Business Standard',
-                'url': 'https://www.business-standard.com/rss/markets-106.rss',
-                'backup_url': 'https://www.business-standard.com/rss/finance-103.rss',
-                'format': 'xml',
-                'encoding': 'utf-8',
-                'priority': 2,
-                'active': True,
-                'description_field': 'summary',
-                'date_field': 'published'
-            },
+            #'business_standard': {
+            #    'name': 'Business Standard',
+            #    'url': 'https://www.business-standard.com/rss/markets-106.rss',
+            #    'backup_url': 'https://www.business-standard.com/rss/finance-103.rss',
+            #    'format': 'xml',
+            #    'encoding': 'utf-8',
+            #    'priority': 2,
+            #    'active': True,
+            #    'description_field': 'summary',
+            #    'date_field': 'published'
+            #},
             'livemint': {
                 'name': 'LiveMint Markets',
                 'url': 'https://www.livemint.com/rss/markets',
@@ -95,17 +95,17 @@ class RSSManager:
                 'description_field': 'summary',
                 'date_field': 'published'
             },
-            'financial_express': {
-                'name': 'Financial Express',
-                'url': 'https://www.financialexpress.com/market/rss/',
-                'backup_url': 'https://www.financialexpress.com/industry/rss/',
-                'format': 'xml',
-                'encoding': 'utf-8',
-                'priority': 5,
-                'active': True,
-                'description_field': 'summary',
-                'date_field': 'published'
-            },
+            #'financial_express': {
+            #    'name': 'Financial Express',
+            #    'url': 'https://www.financialexpress.com/market/rss/',
+            #    'backup_url': 'https://www.financialexpress.com/industry/rss/',
+            #    'format': 'xml',
+            #    'encoding': 'utf-8',
+            #    'priority': 5,
+            #    'active': True,
+            #    'description_field': 'summary',
+            #    'date_field': 'published'
+            #},
             'ndtv_business': {
                 'name': 'NDTV Business',
                 'url': 'https://feeds.feedburner.com/ndtvprofit-latest',
@@ -150,17 +150,17 @@ class RSSManager:
                 'description_field': 'summary',
                 'date_field': 'published'
             },
-            'outlook_money': {
-                'name': 'Outlook Money',
-                'url': 'https://www.outlookindia.com/rss/business',
-                'backup_url': 'https://www.outlookindia.com/business/rss',
-                'format': 'xml',
-                'encoding': 'utf-8',
-                'priority': 10,
-                'active': True,
-                'description_field': 'summary',
-                'date_field': 'published'
-            }
+            #'outlook_money': {
+            #    'name': 'Outlook Money',
+            #    'url': 'https://www.outlookindia.com/rss/business',
+            #    'backup_url': 'https://www.outlookindia.com/business/rss',
+            #    'format': 'xml',
+            #    'encoding': 'utf-8',
+            #    'priority': 10,
+            #    'active': True,
+            #    'description_field': 'summary',
+            #    'date_field': 'published'
+            #}
         }
     
     def fetch_all_rss_feeds(self) -> Dict[str, Any]:

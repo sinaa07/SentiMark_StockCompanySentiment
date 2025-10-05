@@ -163,27 +163,35 @@ class NSEDatabaseManager:
         """
         if not symbol:
             return None
-        
+    
         symbol = symbol.strip().upper()
+    
         query = """
-            SELECT symbol, company_name, series, listing_date, 
-                   paid_up_value, market_lot, isin_number, face_value
-            FROM nse_stocks 
-            WHERE symbol = ?
-        """
-        
+                SELECT 
+                    symbol,
+                    company_name,
+                    series,
+                    listing_date,
+                    paid_up_value,
+                    market_lot,
+                    isin_number,
+                    face_value
+                FROM nse_stocks 
+                WHERE symbol = ?
+                """
+
+    
         results = self.execute_query(query, (symbol,))
-        
+    
         if not results:
             return None
-        
+    
         company = results[0]
-        
-        # Format for news scraper integration
+    
         return {
             'symbol': company['symbol'],
             'nse_symbol': company['symbol'],
-            'company_name': company['company_name'],
+            'company_name': company['company_name'], 
             'series': company['series'],
             'listing_date': company['listing_date'],
             'isin_number': company['isin_number'],
@@ -193,9 +201,7 @@ class NSEDatabaseManager:
             'status': 'active',
             'source': 'nse_database'
         }
-    
-    # Advanced Search Features
-    
+
     def search_by_sector(self, sector_name: str, limit: int = 50) -> List[Dict]:
         """Search companies by sector (if sector data available)"""
         # Note: Current NSE CSV doesn't have sector info

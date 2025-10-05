@@ -32,7 +32,7 @@ class NewsCollector:
         # Resolve to an absolute path anchored at project root
         # If no path is provided, use default path resolved from project root
         if database_path is None:
-            self.db_path = resolve_path("data/nse_stocks.db")
+            self.db_path = resolve_path("data/news_cache.db")
         elif os.path.isabs(database_path):
             self.db_path = database_path
         else:

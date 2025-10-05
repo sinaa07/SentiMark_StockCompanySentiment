@@ -33,12 +33,18 @@ class SentimentPipeline:
         
         try:
             if db_path is None:
-               db_path = resolve_path("data/nse_stocks.db")
+                db_path = resolve_path("data/nse_stocks.db")
+            
+            # Use separate paths for stock DB and cache DB
+            stocks_db_path = db_path
+            news_cache_db_path = resolve_path("data/news_cache.db")   
+            
             # Initialize components
-            self.user_input = UserInputProcessor(db_path=db_path)
-            self.news_collector = NewsCollector(database_path=db_path)
+            self.user_input = UserInputProcessor(db_path=stocks_db_path)
+            self.news_collector = NewsCollector(database_path=news_cache_db_path)  
             self.preprocessor = FinBERTPreprocessor()
-            self.client = FinBERTClient()  # Local FinBERT - no API token needed
+            self.client = FinBERTClient()
+
             
             logger.info("Pipeline initialized successfully")
             
@@ -85,9 +91,9 @@ class SentimentPipeline:
             logger.info(f"Collected {len(articles)} articles")
             
             # Step 3: Preprocess articles for FinBERT
-            preprocessed = self.preprocessor.prepare_articles(articles)
+            preprocessed_chunks = self.preprocessor.prepare_for_finbert(articles)
             
-            if not preprocessed:
+            if not preprocessed_chunks:
                 logger.warning("No valid articles after preprocessing")
                 return {
                     "stage": "preprocessing",
@@ -95,10 +101,10 @@ class SentimentPipeline:
                     "company": company_data
                 }
             
-            logger.info(f"Preprocessed {len(preprocessed)} text entries (including chunks)")
+            logger.info(f"Preprocessed {len(preprocessed_chunks)} chunks")
             
             # Step 4: Run local FinBERT sentiment analysis
-            predictions = self.client.analyze(preprocessed)
+            predictions = self.client.analyze(preprocessed_chunks)
             
             if not predictions:
                 logger.warning("No predictions returned from FinBERT")
@@ -111,7 +117,7 @@ class SentimentPipeline:
             logger.info(f"Generated {len(predictions)} sentiment predictions")
             
             # Step 5: Aggregate results into final structured output
-            final_result = self._aggregate_results(company_data, preprocessed, predictions)
+            final_result = self._aggregate_results(company_data, preprocessed_chunks, predictions)
             
             logger.info(f"Pipeline complete: {final_result['sentiment_summary']['sentiment_label']}")
             return final_result
@@ -177,7 +183,7 @@ class SentimentPipeline:
                     "title": metadata.get('title', 'Unknown'),
                     "url": metadata.get('url', ''),
                     "source": metadata.get('source', 'unknown'),
-                    "published": metadata.get('published', ''),
+                    "published": metadata.get('published_date', ''),
                     "sentiment": sentiment_label,
                     "positive": round(scores['positive'], 4),
                     "neutral": round(scores['neutral'], 4),
@@ -215,7 +221,7 @@ class SentimentPipeline:
             final_result = {
                 "company": {
                     "symbol": company_data.get('symbol', 'UNKNOWN'),
-                    "name": company_data.get('name', 'Unknown Company'),
+                    "name": company_data.get('company_name', 'Unknown Company'),
                     "sector": company_data.get('sector', 'Unknown')
                 },
                 "article_count": article_count,
@@ -274,7 +280,7 @@ class PipelineCLI:
         )
         parser.add_argument(
             "--db-path",
-            default="backend/data/nse_stocks.db",
+            default="data/nse_stocks.db",
             help="Path to NSE stocks database"
         )
         return parser.parse_args()

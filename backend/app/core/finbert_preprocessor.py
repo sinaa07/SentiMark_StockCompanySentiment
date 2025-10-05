@@ -18,25 +18,24 @@ class FinBERTPreprocessor:
         self.chunk_overlap = chunk_overlap
         self.batch_size = batch_size
         
-    def prepare_for_finbert(self, articles: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def prepare_for_finbert(self, articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Main entry point for preparing articles for FinBERT analysis.
         
         Args:
             articles: List of filtered, deduplicated, and sorted articles from content_filter.py
-                     Each article should have: title, content, source, published_date, relevance_score
         
         Returns:
-            Dict containing batched input ready for FinBERT API calls
+            Flat list of preprocessed articles ready for FinBERT client
         """
         if not articles:
             logger.warning("No articles provided for FinBERT preprocessing")
-            return {"batches": [], "total_chunks": 0, "articles_processed": 0}
+            return []
         
         logger.info(f"Starting FinBERT preprocessing for {len(articles)} articles")
         
         try:
-            # Select top articles (already sorted by recency from content_filter)
+            # Select top articles
             top_articles = self._select_top_articles(articles)
             logger.info(f"Selected {len(top_articles)} articles for processing")
             
@@ -48,15 +47,15 @@ class FinBERTPreprocessor:
             chunked_articles = self.chunk_long_articles(cleaned_articles)
             logger.info(f"Created {len(chunked_articles)} chunks from {len(cleaned_articles)} cleaned articles")
             
-            # Create batched input for API calls
-            batched_input = self.create_finbert_input_batch(chunked_articles)
+            # Convert to flat list format for FinBERT client
+            finbert_ready = self._convert_to_finbert_format(chunked_articles)
             
-            logger.info(f"Prepared {len(batched_input['batches'])} batches for FinBERT API")
-            return batched_input
+            logger.info(f"Prepared {len(finbert_ready)} text entries for FinBERT")
+            return finbert_ready
             
         except Exception as e:
             logger.error(f"Error in prepare_for_finbert: {str(e)}")
-            return {"batches": [], "total_chunks": 0, "articles_processed": 0, "error": str(e)}
+            return []
     
     def _select_top_articles(self, articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Select top 15 articles prioritizing relevance and recency."""
@@ -291,95 +290,48 @@ class FinBERTPreprocessor:
             logger.error(f"Error getting overlap text: {str(e)}")
             return ""
     
-    def create_finbert_input_batch(self, processed_articles: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _convert_to_finbert_format(self, chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        Create batched input format for FinBERT API calls.
-        Groups chunks into optimal batch sizes for API efficiency.
-        """
-        if not processed_articles:
-            return {"batches": [], "total_chunks": 0, "articles_processed": 0}
+        Convert chunked articles to flat list format expected by FinBERT client.
         
-        try:
-            batches = []
-            current_batch = []
-            
-            for chunk in processed_articles:
-                try:
-                    # Safely construct chunk_id
-                    source = str(chunk.get('source', 'unknown'))
-                    title = str(chunk.get('original_title', 'untitled'))
-                    chunk_id = chunk.get('chunk_id', 0)
-                    
-                    # Clean strings for use in ID (remove special characters)
-                    source_clean = re.sub(r'[^\w\-_]', '_', source)
-                    title_clean = re.sub(r'[^\w\-_]', '_', title)[:50]  # Limit length
-                    
-                    chunk_item = {
-                        'text': str(chunk.get('text', '')),
-                        'chunk_id': f"{source_clean}_{title_clean}_{chunk_id}",
-                        'metadata': {
-                            'source': source,
-                            'published_date': chunk.get('published_date'),
-                            'original_title': title,
-                            'chunk_position': f"{chunk_id + 1}/{chunk.get('total_chunks', 1)}",
-                            'link': chunk.get('link', '')
-                        }
+        Args:
+            chunks: List of chunked articles
+        
+        Returns:
+            Flat list with format: [{'id': '...', 'text': '...', 'metadata': {...}}, ...]
+        """
+        finbert_ready = []
+        
+        for chunk in chunks:
+            try:
+                # Safely construct chunk_id
+                source = str(chunk.get('source', 'unknown'))
+                title = str(chunk.get('original_title', 'untitled'))
+                chunk_id = chunk.get('chunk_id', 0)
+                
+                # Clean strings for use in ID
+                source_clean = re.sub(r'[^\w\-_]', '_', source)
+                title_clean = re.sub(r'[^\w\-_]', '_', title)[:50]
+                
+                item = {
+                    'id': f"{source_clean}_{title_clean}_{chunk_id}",
+                    'text': str(chunk.get('text', '')),
+                    'metadata': {
+                        'source': source,
+                        'published_date': chunk.get('published_date'),
+                        'title': title,
+                        'chunk_position': f"{chunk_id + 1}/{chunk.get('total_chunks', 1)}",
+                        'url': chunk.get('link', '')
                     }
-                    
-                    current_batch.append(chunk_item)
-                    
-                    # Create batch when batch_size is reached
-                    if len(current_batch) >= self.batch_size:
-                        batches.append({
-                            'batch_id': len(batches),
-                            'texts': [item['text'] for item in current_batch],
-                            'chunk_metadata': current_batch.copy()
-                        })
-                        current_batch = []
-                        
-                except Exception as e:
-                    logger.error(f"Error processing chunk for batch: {str(e)}")
-                    continue
-            
-            # Add remaining chunks as final batch
-            if current_batch:
-                batches.append({
-                    'batch_id': len(batches),
-                    'texts': [item['text'] for item in current_batch],
-                    'chunk_metadata': current_batch.copy()
-                })
-            
-            # Count unique articles safely: use combination of source/title/link to reduce collisions
-            unique_keys = set()
-            for chunk in processed_articles:
-                key_source = str(chunk.get('source', 'unknown'))
-                key_title = str(chunk.get('original_title', ''))
-                key_link = str(chunk.get('link', ''))
-                unique_keys.add((key_source, key_title, key_link))
-            
-            result = {
-                'batches': batches,
-                'total_chunks': len(processed_articles),
-                'articles_processed': len(unique_keys),
-                'processing_timestamp': datetime.now().isoformat(),
-                'batch_config': {
-                    'max_tokens_per_chunk': self.max_tokens_per_chunk,
-                    'chunk_overlap': self.chunk_overlap,
-                    'batch_size': self.batch_size
                 }
-            }
-            
-            logger.info(f"Created {len(batches)} batches with {result['total_chunks']} total chunks")
-            # Log missing metadata stats
-            missing_dates = sum(1 for b in batches for m in b['chunk_metadata'] if not m['metadata'].get('published_date'))
-            if missing_dates:
-                logger.warning(f"{missing_dates} chunks with missing published_date (check 'published' field mapping upstream)")
-            return result
-            
-        except Exception as e:
-            logger.error(f"Error creating batched input: {str(e)}")
-            return {"batches": [], "total_chunks": 0, "articles_processed": 0, "error": str(e)}
-
+                
+                finbert_ready.append(item)
+                
+            except Exception as e:
+                logger.error(f"Error converting chunk to FinBERT format: {str(e)}")
+                continue
+        
+        return finbert_ready
 
 # Usage example and integration point
 if __name__ == "__main__":
@@ -391,16 +343,16 @@ if __name__ == "__main__":
         sample_articles = [
             {
                 'title': 'Reliance Industries Reports Strong Q3 Results',
-                'content': 'Reliance Industries Limited announced robust quarterly results with revenue growth of 15% year-over-year. The company reported consolidated revenue of INR 2.3 lakh crore for the quarter ending December 2024.',
+                'description': 'Reliance Industries Limited announced robust quarterly results with revenue growth of 15% year-over-year. The company reported consolidated revenue of INR 2.3 lakh crore for the quarter ending December 2024.',
                 'source': 'Economic Times',
-                'published_date': '2024-01-15',
+                'published': '2024-01-15',
                 'relevance_score': 0.95
             },
             {
                 'title': None,  # Test None handling
-                'content': '',  # Test empty content
+                'description': '',  # Test empty content
                 'source': 'Test Source',
-                'published_date': '2024-01-16',
+                'published': '2024-01-16',
                 'relevance_score': 0.8
             }
         ]
@@ -408,14 +360,18 @@ if __name__ == "__main__":
         # Process articles
         result = preprocessor.prepare_for_finbert(sample_articles)
         
-        print(f"Processing complete:")
-        print(f"- Articles processed: {result['articles_processed']}")
-        print(f"- Total chunks created: {result['total_chunks']}")
-        print(f"- Batches for API: {len(result['batches'])}")
+        print(f"\nProcessing complete:")
+        print(f"- Total entries prepared: {len(result)}")
         
-        if 'error' in result:
-            print(f"- Error encountered: {result['error']}")
+        # Display first entry as example
+        if result:
+            print(f"\nExample entry:")
+            print(f"- ID: {result[0]['id']}")
+            print(f"- Text length: {len(result[0]['text'])} chars")
+            print(f"- Metadata: {result[0]['metadata']}")
             
     except Exception as e:
         print(f"Error in main execution: {str(e)}")
         logger.error(f"Main execution error: {str(e)}")
+        import traceback
+        traceback.print_exc()
