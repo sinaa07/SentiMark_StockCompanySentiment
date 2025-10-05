@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from "react"
 import { Search, TrendingUp, Zap, Brain, CheckCircle } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import SegmentedRingLoader from "@/components/segmented-ring-loader"
+import RecentSearches from "@/components/recent-searches"
 import type { AutocompleteResult } from "@/types/api"
 
 interface SearchSectionProps {
@@ -92,7 +93,7 @@ export default function SearchSection({ onSearch, isLoading, isComplete, error }
         </p>
       </div>
 
-      <div className="animate-scale-in relative">
+      <div className="animate-scale-in space-y-6">
         <div className="relative">
           <Search className="absolute left-6 top-1/2 h-6 w-6 -translate-y-1/2 text-green-500 transition-all" />
           <Input
@@ -105,9 +106,8 @@ export default function SearchSection({ onSearch, isLoading, isComplete, error }
           />
         </div>
 
-        {/* Autocomplete Dropdown */}
         {showDropdown && (
-          <div className="absolute top-full z-10 mt-2 max-h-[300px] w-full overflow-y-auto rounded-xl border border-gray-700/50 bg-gray-900/90 backdrop-blur-lg custom-scrollbar">
+          <div className="absolute top-full z-50 mt-2 max-h-[300px] w-full overflow-y-auto rounded-xl border border-gray-700/50 bg-gray-900/90 backdrop-blur-lg custom-scrollbar">
             {suggestions.map((suggestion, index) => (
               <button
                 key={suggestion.symbol}
@@ -121,10 +121,11 @@ export default function SearchSection({ onSearch, isLoading, isComplete, error }
             ))}
           </div>
         )}
+
+        <RecentSearches onSelect={handleSelect} />
       </div>
 
-      {/* Trust element badges with icons and hover effects */}
-      <div className="animate-stagger-fade-in flex flex-wrap items-center justify-center gap-4">
+      <div className="animate-stagger-fade-in z-10 flex flex-wrap items-center justify-center gap-4">
         <div className="group flex items-center gap-2 rounded-full border border-gray-700/50 bg-gray-800/50 px-4 py-2 backdrop-blur-sm transition-all hover:-translate-y-1 hover:border-green-500/50 hover:shadow-lg hover:shadow-green-500/20">
           <Brain className="h-4 w-4 text-cyan-500" />
           <span className="font-sans text-sm text-gray-300 group-hover:text-white">FinBERT Powered</span>

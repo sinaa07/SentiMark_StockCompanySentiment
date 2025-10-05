@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import SentimentRing from "@/components/sentiment-ring"
+import SentimentVerdict from "@/components/sentiment-verdict"
 import ArticlesList from "@/components/articles-list"
 import type { PipelineResponse } from "@/types/api"
 
@@ -33,22 +34,14 @@ export default function ResultsDashboard({ data }: ResultsDashboardProps) {
         )}
       </div>
 
-      {/* Sentiment Rings */}
-      <div className="mt-12 grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-5">
-        <SentimentRing
-          value={sentiment_summary.overall_score * 100}
-          label={sentiment_summary.sentiment_label}
-          title="Overall Sentiment"
-          color={
-            sentiment_summary.sentiment_label === "bullish"
-              ? "green"
-              : sentiment_summary.sentiment_label === "bearish"
-                ? "red"
-                : "yellow"
-          }
-          isPercentage
+      <div className="mt-8">
+        <SentimentVerdict
+          sentimentLabel={sentiment_summary.sentiment_label}
+          confidence={sentiment_summary.confidence}
         />
+      </div>
 
+      <div className="mt-12 grid grid-cols-2 gap-6 lg:grid-cols-4">
         <SentimentRing
           value={(sentiment_summary.bullish / article_count) * 100}
           label={sentiment_summary.bullish.toString()}

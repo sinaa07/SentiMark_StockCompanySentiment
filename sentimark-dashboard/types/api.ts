@@ -6,6 +6,13 @@ export interface AutocompleteResult {
   value: string
 }
 
+export interface RecentSearch {
+  symbol: string
+  company_name: string
+  timestamp: string
+  series: string
+}
+
 export interface Company {
   symbol: string
   name: string

@@ -4,6 +4,7 @@ import { useState, useRef } from "react"
 import Navbar from "@/components/navbar"
 import SearchSection from "@/components/search-section"
 import ResultsDashboard from "@/components/results-dashboard"
+import Footer from "@/components/footer"
 import type { PipelineResponse } from "@/types/api"
 
 export default function Home() {
@@ -92,6 +93,8 @@ export default function Home() {
           </section>
         )}
       </main>
+
+      <Footer />
     </div>
   )
 }

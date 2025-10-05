@@ -36,7 +36,6 @@ export default function SentimentRing({ value, label, title, color, isPercentage
     <div className="flex flex-col items-center">
       <div className="relative" style={{ width: size, height: size }}>
         <svg width={size} height={size} className="rotate-[-90deg]">
-          {/* Background ring with gaps */}
           <circle
             cx={size / 2}
             cy={size / 2}
@@ -44,10 +43,8 @@ export default function SentimentRing({ value, label, title, color, isPercentage
             fill="none"
             stroke="#374151"
             strokeWidth={strokeWidth}
-            strokeDasharray="8 4"
             strokeLinecap="round"
           />
-          {/* Progress ring with gaps */}
           <circle
             cx={size / 2}
             cy={size / 2}
@@ -60,7 +57,6 @@ export default function SentimentRing({ value, label, title, color, isPercentage
             strokeLinecap="round"
             style={{
               transition: "stroke-dashoffset 1s ease",
-              strokeDasharray: `8 4 ${circumference}`,
             }}
           />
         </svg>

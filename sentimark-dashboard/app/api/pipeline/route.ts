@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Symbol is required" }, { status: 400 })
     }
 
-    // Replace with your actual API endpoint
+    // Replace with your actual API endpoint http://localhost:8000/api/pipeline
     const response = await fetch("http://localhost:8000/api/pipeline", {
       method: "POST",
       headers: {
