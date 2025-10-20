@@ -35,10 +35,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-backend/finbert_training/models/
+
 *.pt
 *.bin
-*.safetensors
+
 *.db
 *.csv
 node_modules/
