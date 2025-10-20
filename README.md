@@ -1,5 +1,5 @@
 ## SentiMark - Stock Company Sentiment Analysis 💲📈
-[Dashboard Screenshot](./docs/dashboard.png)
+![Dashboard Screenshot](./docs/dashboard.png)
 End-to-end dashboard that pairs a FastAPI backend, FinBERT sentiment pipeline, and a Next.js frontend to surface real-time financial news sentiment for NSE-listed companies.
 
 ## Tech Stack ⚙️
