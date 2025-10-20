@@ -3,9 +3,10 @@ uvicorn[standard]
 gunicorn
 pydantic
 python-multipart
-transformers
-tokenizers
-torch==2.2.0
+numpy<2
+transformers==4.36.2
+tokenizers==0.15.2
+torch==2.1.0
 google-generativeai
 sqlalchemy
 requests
