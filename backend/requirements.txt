@@ -1,15 +1,13 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+
 fastapi
 uvicorn[standard]
-gunicorn
 pydantic
 python-multipart
 numpy<2
 transformers==4.36.2
 tokenizers==0.15.2
-torch==2.1.0
+torch==2.1.0+cpu
 google-generativeai
-sqlalchemy
+sqlalchemy==2.0.25
 requests
-feedparser
-
---extra-index-url https://download.pytorch.org/whl/cpu
