@@ -2,3 +2,4 @@
 // deploy-final
 // deploy-clean
 // deploy-font-fix
+// deploy-no-fonts
