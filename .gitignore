@@ -1,9 +1,0 @@
-__pycache__/
-.env
-*.pyc
-*.pyo
-*.pyd
-.venv/
-.streamlit/secrets.toml
-config/api_keys.py
-.DS_Store
