@@ -39,28 +39,28 @@ class FinBERTClient:
         
         logger.info(f"Using device: {self.device}")
         
-        try:
-            # Load tokenizer and model
-            self.tokenizer = AutoTokenizer.from_pretrained(str(MODEL_PATH),local_files_only=True)
-            self.model = AutoModelForSequenceClassification.from_pretrained(str(MODEL_PATH),local_files_only=True)
-
-            
-            # Move model to device and set to evaluation mode
+        # ✅ MINIMAL EDIT: do not load model in __init__
+        # just store path + lazy-load flags
+        self.tokenizer = None
+        self.model = None
+        self._loaded = False
+        self.model_name = str(MODEL_PATH)
+        
+        self.batch_size = batch_size
+        
+        # FinBERT label mapping: [positive, neutral, negative]
+        self.label_map = {0: 'positive', 1: 'neutral', 2: 'negative'}
+    
+    # ✅ MINIMAL EDIT: lazy-load model only when first used
+    def _lazy_load(self):
+        if not self._loaded:
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, local_files_only=True)
+            self.model = AutoModelForSequenceClassification.from_pretrained(self.model_name, local_files_only=True)
             self.model.to(self.device)
             self.model.eval()
-            
-            self.batch_size = batch_size
-            self.model_name = str(MODEL_PATH)
-            
-            # FinBERT label mapping: [positive, neutral, negative]
-            self.label_map = {0: 'positive', 1: 'neutral', 2: 'negative'}
-            
-            logger.info(f"FinBERT client initialized successfully on {self.device}")
-            
-        except Exception as e:
-            logger.error(f"Error initializing FinBERT client: {str(e)}")
-            raise
-    
+            self._loaded = True
+            logger.info("FinBERT model + tokenizer loaded lazily on first request.")
+
     def analyze(self, articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Main entry point: Perform sentiment analysis on preprocessed articles.
@@ -84,6 +84,10 @@ class FinBERTClient:
                 ...
             ]
         """
+
+        # ✅ MINIMAL EDIT: load model now (not at startup)
+        self._lazy_load()
+
         if not articles:
             logger.warning("No articles provided for sentiment analysis")
             return []

@@ -43,8 +43,9 @@ class SentimentPipeline:
             self.user_input = UserInputProcessor(db_path=stocks_db_path)
             self.news_collector = NewsCollector(database_path=news_cache_db_path)  
             self.preprocessor = FinBERTPreprocessor()
-            self.client = FinBERTClient()
 
+            # ✅ Minimal change: DON'T load FinBERT here
+            self.client = None
             
             logger.info("Pipeline initialized successfully")
             
@@ -104,6 +105,10 @@ class SentimentPipeline:
             logger.info(f"Preprocessed {len(preprocessed_chunks)} chunks")
             
             # Step 4: Run local FinBERT sentiment analysis
+            # ✅ Minimal change: Lazy-load FinBERT client only when needed
+            if self.client is None:
+                self.client = FinBERTClient()
+
             predictions = self.client.analyze(preprocessed_chunks)
             
             if not predictions:
