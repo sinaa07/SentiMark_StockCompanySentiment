@@ -29,6 +29,9 @@ def read_root():
         "docs": "/docs",
         "redoc": "/redoc"
     }
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
 
 

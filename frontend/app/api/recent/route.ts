@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from "next/server";
 export async function GET(request: NextRequest) {
   try {
     // Replace with your actual API endpoint
-    const response = await fetch("http://localhost:8000/api/recent", {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/recent`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
