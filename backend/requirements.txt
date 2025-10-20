@@ -1,19 +1,14 @@
-# --- FastAPI Core ---
 fastapi
 uvicorn[standard]
 gunicorn
 pydantic
 python-multipart
-
-# --- FinBERT Inference ---
 transformers
 tokenizers
-torch==2.2.0+cpu --extra-index-url https://download.pytorch.org/whl/cpu
-
-# --- Gemini ---
+torch==2.2.0
 google-generativeai
-
-# --- Data / DB / RSS ---
 sqlalchemy
 requests
 feedparser
+
+--extra-index-url https://download.pytorch.org/whl/cpu
