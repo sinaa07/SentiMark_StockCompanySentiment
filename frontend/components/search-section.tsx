@@ -21,7 +21,7 @@ export default function SearchSection({ onSearch, isLoading, isComplete, error }
   const [suggestions, setSuggestions] = useState<AutocompleteResult[]>([])
   const [showDropdown, setShowDropdown] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
-  const debounceTimer = useRef<NodeJS.Timeout>()
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (query.length < 2) {
@@ -92,7 +92,28 @@ export default function SearchSection({ onSearch, isLoading, isComplete, error }
           AI-powered analysis of NSE stock news and sentiment trends
         </p>
       </div>
+      <div className="animate-stagger-fade-in z-10 flex flex-wrap items-center justify-center gap-4">
+        <div className="group flex items-center gap-2 rounded-full border border-gray-700/50 bg-gray-800/50 px-4 py-2 backdrop-blur-sm transition-all hover:-translate-y-1 hover:border-green-500/50 hover:shadow-lg hover:shadow-green-500/20">
+          <Brain className="h-4 w-4 text-cyan-500" />
+          <span className="font-sans text-sm text-gray-300 group-hover:text-white">FinBERT Powered</span>
+        </div>
 
+        <div className="group flex items-center gap-2 rounded-full border border-gray-700/50 bg-gray-800/50 px-4 py-2 backdrop-blur-sm transition-all hover:-translate-y-1 hover:border-green-500/50 hover:shadow-lg hover:shadow-green-500/20">
+          <TrendingUp className="h-4 w-4 text-green-500" />
+          <span className="font-sans text-sm text-gray-300 group-hover:text-white">Sentiment Analysis</span>
+        </div>
+
+        <div className="group flex items-center gap-2 rounded-full border border-gray-700/50 bg-gray-800/50 px-4 py-2 backdrop-blur-sm transition-all hover:-translate-y-1 hover:border-green-500/50 hover:shadow-lg hover:shadow-green-500/20">
+          <Zap className="h-4 w-4 text-yellow-500" />
+          <span className="font-sans text-sm text-gray-300 group-hover:text-white">Trading Intelligence</span>
+        </div>
+
+        <div className="group flex items-center gap-2 rounded-full border border-gray-700/50 bg-gray-800/50 px-4 py-2 backdrop-blur-sm transition-all hover:-translate-y-1 hover:border-green-500/50 hover:shadow-lg hover:shadow-green-500/20">
+          <CheckCircle className="h-4 w-4 text-green-500" />
+          <span className="font-sans text-sm text-gray-300 group-hover:text-white">Market Insights</span>
+        </div>
+      </div>
+      
       <div className="animate-scale-in space-y-6">
         <div className="relative">
           <Search className="absolute left-6 top-1/2 h-6 w-6 -translate-y-1/2 text-green-500 transition-all" />
@@ -125,27 +146,7 @@ export default function SearchSection({ onSearch, isLoading, isComplete, error }
         <RecentSearches onSelect={handleSelect} />
       </div>
 
-      <div className="animate-stagger-fade-in z-10 flex flex-wrap items-center justify-center gap-4">
-        <div className="group flex items-center gap-2 rounded-full border border-gray-700/50 bg-gray-800/50 px-4 py-2 backdrop-blur-sm transition-all hover:-translate-y-1 hover:border-green-500/50 hover:shadow-lg hover:shadow-green-500/20">
-          <Brain className="h-4 w-4 text-cyan-500" />
-          <span className="font-sans text-sm text-gray-300 group-hover:text-white">FinBERT Powered</span>
-        </div>
-
-        <div className="group flex items-center gap-2 rounded-full border border-gray-700/50 bg-gray-800/50 px-4 py-2 backdrop-blur-sm transition-all hover:-translate-y-1 hover:border-green-500/50 hover:shadow-lg hover:shadow-green-500/20">
-          <TrendingUp className="h-4 w-4 text-green-500" />
-          <span className="font-sans text-sm text-gray-300 group-hover:text-white">Sentiment Analysis</span>
-        </div>
-
-        <div className="group flex items-center gap-2 rounded-full border border-gray-700/50 bg-gray-800/50 px-4 py-2 backdrop-blur-sm transition-all hover:-translate-y-1 hover:border-green-500/50 hover:shadow-lg hover:shadow-green-500/20">
-          <Zap className="h-4 w-4 text-yellow-500" />
-          <span className="font-sans text-sm text-gray-300 group-hover:text-white">Trading Intelligence</span>
-        </div>
-
-        <div className="group flex items-center gap-2 rounded-full border border-gray-700/50 bg-gray-800/50 px-4 py-2 backdrop-blur-sm transition-all hover:-translate-y-1 hover:border-green-500/50 hover:shadow-lg hover:shadow-green-500/20">
-          <CheckCircle className="h-4 w-4 text-green-500" />
-          <span className="font-sans text-sm text-gray-300 group-hover:text-white">Market Insights</span>
-        </div>
-      </div>
+      
 
       {/* Loading/Complete State */}
       <div className="flex min-h-[140px] flex-col items-center justify-center">
