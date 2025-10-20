@@ -1,5 +1,7 @@
 # finbert_client.py - Local FinBERT Sentiment Analysis Client
 import torch
+from pathlib import Path
+
 import logging
 from typing import List, Dict, Any
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
@@ -7,7 +9,6 @@ import torch.nn.functional as F
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 class FinBERTClient:
     """
     Client for local FinBERT sentiment analysis using PyTorch + Transformers.
@@ -15,7 +16,6 @@ class FinBERTClient:
     """
     
     def __init__(self, 
-                 model_name: str = "yiyanghkust/finbert-tone",
                  device: str = None,
                  batch_size: int = 16):
         """
@@ -26,7 +26,10 @@ class FinBERTClient:
             device: Device to run inference on ('cuda', 'cpu', or None for auto-detect)
             batch_size: Number of texts to process in each batch
         """
-        logger.info(f"Initializing FinBERT client with model: {model_name}")
+         # Resolve backend root → /backend
+        BASE_DIR = Path(__file__).resolve().parent.parent.parent
+        MODEL_PATH = BASE_DIR / "finbert_training/models/final"
+        logger.info(f"Initializing FinBERT client with model: {str(MODEL_PATH)}")
         
         # Set device (auto-detect GPU if available)
         if device is None:
@@ -38,15 +41,15 @@ class FinBERTClient:
         
         try:
             # Load tokenizer and model
-            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-            self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
+            self.tokenizer = AutoTokenizer.from_pretrained(str(MODEL_PATH))
+            self.model = AutoModelForSequenceClassification.from_pretrained(str(MODEL_PATH))
             
             # Move model to device and set to evaluation mode
             self.model.to(self.device)
             self.model.eval()
             
             self.batch_size = batch_size
-            self.model_name = model_name
+            self.model_name = str(MODEL_PATH)
             
             # FinBERT label mapping: [positive, neutral, negative]
             self.label_map = {0: 'positive', 1: 'neutral', 2: 'negative'}
