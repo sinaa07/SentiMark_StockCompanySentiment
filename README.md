@@ -1,6 +1,6 @@
 ## SentiMark - Stock Company Sentiment Analysis 💹📰
 ![Dashboard Screenshot](./docs/dashboard.png)
-The SentiMark Dashboard is an AI-powered web application designed to provide support to investors and traders to analyze financial news sentiment for NSE (National Stock Exchange) listed companies.
+The SentiMark Dashboard is an AI-powered web application designed to provide support to investors and traders to analyze financial news sentiment for 3000+ NSE listed companies.
 
 ---
 
