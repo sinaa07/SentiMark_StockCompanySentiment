@@ -1,5 +1,5 @@
 ## Stock Company Sentiment Analysis
-
+> ![Dashboard Screenshot](./docs/dashboard.png)
 End-to-end dashboard that pairs a FastAPI backend, FinBERT sentiment pipeline, and a Next.js frontend to surface real-time financial news sentiment for NSE-listed companies.
 
 ---
@@ -179,13 +179,9 @@ Model artifacts can be pointed to by updating `backend/app/core/finbert_client.p
 
 ---
 
-## Troubleshooting
+### 📌 Copyright
 
-- **FinBERT downloads are slow**: Pre-download the model with `python -c "from transformers import AutoModel; AutoModel.from_pretrained('yiyanghkust/finbert-tone')"` while on a stable network.
-- **Gemini search disabled**: If `GEMINI_API_KEY` is missing, the pipeline will rely solely on RSS sources.
-- **Frontend cannot reach backend**: Confirm both servers run locally and update any reverse-proxy or env settings so the Next.js fetch calls hit the correct host.
-
----
+© 2025 Stock Sentiment Dashboard. All Rights Reserved.
 
 
 
