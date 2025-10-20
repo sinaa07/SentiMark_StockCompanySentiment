@@ -1,6 +1,8 @@
 ## SentiMark - Stock Company Sentiment Analysis 💹📰
 ![Dashboard Screenshot](./docs/dashboard.png)
-End-to-end dashboard that pairs a FastAPI backend, FinBERT sentiment pipeline, and a Next.js frontend to surface real-time financial news sentiment for NSE-listed companies.
+The SentiMark Dashboard is an AI-powered web application designed to provide support to investors and traders to analyze financial news sentiment for NSE (National Stock Exchange) listed companies.
+
+---
 
 ## Tech Stack ⚙️
 
@@ -9,6 +11,7 @@ End-to-end dashboard that pairs a FastAPI backend, FinBERT sentiment pipeline, a
 - Next.js 15 UI with Tailwind CSS
 - SQLite for stock master data and news caching
 
+---
 
 ## Repository Layout 📁
 
@@ -27,7 +30,7 @@ stock-sentiment-dashboard/
 
 ---
 
-## Prerequisites
+## Prerequisites 📌
 
 - Python **3.11** (recommended)
 - `pip` ≥ 23.x (or Poetry/Pipenv if you prefer)
@@ -42,7 +45,7 @@ Optional but useful:
 
 ---
 
-## Initial Setup
+## Initial Setup 🛠️
 
 ## Backend Setup (FastAPI + FinBERT)
 
@@ -137,7 +140,7 @@ Optional but useful:
 
 ---
 
-## FinBERT Fine-Tuning & Evaluation Suite
+## FinBERT Fine-Tuning & Evaluation Suite 📎
 
 Utilities for generating datasets, fine-tuning, and evaluating FinBERT live in `backend/finbert_training/`.
 Run these scripts from that directory (they share the backend virtual environment):
