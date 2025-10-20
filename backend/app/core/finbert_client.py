@@ -41,8 +41,9 @@ class FinBERTClient:
         
         try:
             # Load tokenizer and model
-            self.tokenizer = AutoTokenizer.from_pretrained(str(MODEL_PATH))
-            self.model = AutoModelForSequenceClassification.from_pretrained(str(MODEL_PATH))
+            self.tokenizer = AutoTokenizer.from_pretrained(str(MODEL_PATH),local_files_only=True)
+            self.model = AutoModelForSequenceClassification.from_pretrained(str(MODEL_PATH),local_files_only=True)
+
             
             # Move model to device and set to evaluation mode
             self.model.to(self.device)
